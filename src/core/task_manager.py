@@ -28,7 +28,7 @@ class TaskManager:
             TaskType.epi: TaskEntity.epi.value,
         }
 
-    async def start_tests(self, user: "User") -> bool:
+    async def start_tasks(self, user: "User") -> bool:
         try:
             await update_user(
                 user_id=user.user_id,
@@ -40,7 +40,7 @@ class TaskManager:
             )
 
             self.active_tasks[user.user_id] = {
-                "current_task_type": TaskType.priorities,
+                "current_task_type": TaskType.priorities.value,
                 "current_question": 0,
                 "current_step": 0,
                 "answers": {},
@@ -64,13 +64,13 @@ class TaskManager:
 
     def get_current_task_type(self, user_id: int) -> int:
         state = self.get_task_state(user_id)
-        return state["current_task_type"] if state else TaskType.priorities
+        return state["current_task_type"] if state else TaskType.priorities.value
 
     def is_all_tasks_completed(self, user_id: int) -> bool:
         state = self.get_task_state(user_id)
         if not state:
             return False
-        return state["current_task_type"] > TaskType.epi
+        return state["current_task_type"] > TaskType.epi.value
 
     async def process_priorities_answer(self, user: "User", category_id: str, score: int) -> Tuple[bool, str]:
         try:
@@ -78,7 +78,7 @@ class TaskManager:
             if not task_state:
                 return False, MESSAGES["task_not_found"]
 
-            if task_state["current_task_type"] != TaskType.priorities:
+            if task_state["current_task_type"] != TaskType.priorities.value:
                 return False, MESSAGES["task_incorrect"]
 
             if TaskSection.priorities.value not in task_state["answers"]:
@@ -110,7 +110,7 @@ class TaskManager:
             if not task_state:
                 return False, MESSAGES["task_not_found"]
 
-            if task_state["current_task_type"] != TaskType.inq:
+            if task_state["current_task_type"] != TaskType.inq.value:
                 return False, MESSAGES["task_incorrect"]
 
             question_num = task_state["current_question"]
@@ -138,7 +138,7 @@ class TaskManager:
             task_state["answers"][TaskSection.inq.value][question_key][option] = score
 
             task_state["history"].append(
-                {"task": TaskType.inq, "question": question_num, "step": step, "option": option, "score": score}
+                {"task": TaskType.inq.value, "question": question_num, "step": step, "option": option, "score": score}
             )
 
             task_state["current_step"] = step + 1
@@ -165,7 +165,7 @@ class TaskManager:
             if not task_state:
                 return False, MESSAGES["task_not_found"]
 
-            if task_state["current_task_type"] != TaskType.epi:
+            if task_state["current_task_type"] != TaskType.epi.value:
                 return False, MESSAGES["task_incorrect"]
 
             question_num = task_state["current_question"]
@@ -198,7 +198,7 @@ class TaskManager:
         state = self.get_task_state(user_id)
         if not state or TaskSection.priorities.value not in state["answers"]:
             return False
-        return len(state["answers"][TaskSection.priorities.value]) == TaskAnswersLimit.priorities
+        return len(state["answers"][TaskSection.priorities.value]) == TaskAnswersLimit.priorities.value
 
     def is_inq_question_completed(self, user_id: int, question_num: int) -> bool:
         state = self.get_task_state(user_id)

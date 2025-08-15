@@ -1,15 +1,15 @@
 from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
-
 from config.const import (
     TaskEntity,
     MESSAGES,
-    TASK_MANAGER,
     TaskSection,
     AnswerOptions,
     PRIORITIES_LENGTH_SCORES_PER_QUESTION,
     INQ_SCORES_PER_QUESTION,
     INQ_LENGTH_SCORES_PER_QUESTION,
 )
+
+from main import task_manager
 
 
 async def send_priorities_task(message: Message, user_id: int):
@@ -26,7 +26,7 @@ async def send_priorities_task(message: Message, user_id: int):
         text += f"<b>{i}️⃣ {category['title']}</b>\n"
         text += f"{category['description']}\n\n"
 
-    state = TASK_MANAGER.get_task_state(user_id)
+    state = task_manager.get_task_state(user_id)
     used_scores = []
     if state and TaskSection.priorities.value in state["answers"]:
         used_scores = set(state["answers"][TaskSection.priorities.value].values())
@@ -61,11 +61,11 @@ async def send_inq_question(message: Message, user_id: int, question_num: int):
         await message.edit_text(MESSAGES["task_not_found"])
         return
 
-    state = TASK_MANAGER.get_task_state(user_id)
+    state = task_manager.get_task_state(user_id)
     if not state:
         return
 
-    available_options = TASK_MANAGER.get_inq_available_options(user_id, question_num)
+    available_options = task_manager.get_inq_available_options(user_id, question_num)
     current_step = state["current_step"]
     next_score = INQ_SCORES_PER_QUESTION[current_step] if current_step < INQ_LENGTH_SCORES_PER_QUESTION else 1
 

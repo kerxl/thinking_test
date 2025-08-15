@@ -28,7 +28,7 @@ class PrioritiesTask(BaseTest):
 
     async def load_questions(self):
         try:
-            async with aiofiles.open("questions/first_test.json", "r", encoding="utf-8") as f:
+            async with aiofiles.open("questions/first_task.json", "r", encoding="utf-8") as f:
                 content = await f.read()
                 self.question_data = json.loads(content)
                 self.loaded = True
@@ -87,7 +87,7 @@ class InqTask(BaseTest):
 
     async def load_questions(self):
         try:
-            async with aiofiles.open("questions/second_test.json", "r", encoding="utf-8") as f:
+            async with aiofiles.open("questions/second_task.json", "r", encoding="utf-8") as f:
                 content = await f.read()
                 self.questions = json.loads(content)
                 self.loaded = True
@@ -173,7 +173,7 @@ class EpiTask(BaseTest):
 
     async def load_questions(self):
         try:
-            async with aiofiles.open("questions/third_test.json", "r", encoding="utf-8") as f:
+            async with aiofiles.open("questions/third_task.json", "r", encoding="utf-8") as f:
                 content = await f.read()
                 self.questions = json.loads(content)
                 self.loaded = True
