@@ -1,9 +1,13 @@
 from enum import Enum
 
+from aiogram import Dispatcher
 from aiogram.fsm.state import StatesGroup, State
+from aiogram.fsm.storage.memory import MemoryStorage
 
-from src.core.task_manager import TaskManager
-from src.core.test_models import PrioritiesTask, InqTask, EpiTask
+from src.core.task_models import PrioritiesTask, InqTask, EpiTask
+
+storage = MemoryStorage()
+dp = Dispatcher(storage=storage)
 
 MESSAGES = {}
 
@@ -14,8 +18,6 @@ INQ_SCORES_PER_QUESTION = [5, 4, 3, 2, 1]
 INQ_LENGTH_SCORES_PER_QUESTION = len(INQ_SCORES_PER_QUESTION)
 
 TOTAL_QUESTIONS = 18
-
-TASK_MANAGER = TaskManager()
 
 AGE_MIN = 12
 AGE_MAX = 99

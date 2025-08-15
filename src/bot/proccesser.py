@@ -57,7 +57,7 @@ async def process_age(message: Message, state: FSMContext):
         first_name=data["first_name"],
         last_name=data["last_name"],
         age=age,
-        test_start=datetime.now(),
+        task_start=datetime.now(),
     )
 
     await state.clear()

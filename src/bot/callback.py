@@ -2,9 +2,9 @@ from aiogram import F
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 
-from config.const import MESSAGES, PersonalDataStates, TASK_MANAGER, INQ_SCORES_PER_QUESTION, TaskEntity, TaskType
+from main import task_manager
+from config.const import MESSAGES, PersonalDataStates, INQ_SCORES_PER_QUESTION, TaskEntity, TaskType, dp
 from src.bot.complete import complete_all_tasks
-from src.bot.main import dp
 from src.bot.sender import send_priorities_task, send_inq_question, send_epi_question
 from src.database.operations import get_or_create_user
 
@@ -19,6 +19,19 @@ async def collect_personal_data(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
+@dp.callback_query(F.data == "start_tasks")
+async def start_tasks(callback: CallbackQuery):
+    user = await get_or_create_user(user_id=callback.from_user.id, username=callback.from_user.username)
+
+    success = await task_manager.start_tasks(user)
+    if not success:
+        await callback.message.edit_text(MESSAGES["task_not_loaded"])
+        return
+
+    await send_priorities_task(callback.message, user.user_id)
+    await callback.answer()
+
+
 @dp.callback_query(F.data.startswith("priority_"))
 async def process_priorities_answer(callback: CallbackQuery):
     """
@@ -30,7 +43,7 @@ async def process_priorities_answer(callback: CallbackQuery):
 
     user = await get_or_create_user(user_id=callback.from_user.id, username=callback.from_user.username)
 
-    success, message_text = await TASK_MANAGER.process_priorities_answer(user, category_id, score)
+    success, message_text = await task_manager.process_priorities_answer(user, category_id, score)
     if not success:
         await callback.answer(f"❌ {message_text}", show_alert=True)
         return
@@ -46,17 +59,17 @@ async def complete_priorities(callback: CallbackQuery):
     """
     user = await get_or_create_user(user_id=callback.from_user.id, username=callback.from_user.username)
 
-    if not TASK_MANAGER.is_priorities_task_completed(user.user_id):
+    if not task_manager.is_priorities_task_completed(user.user_id):
         await callback.answer(MESSAGES["need_finish_all_categories"], show_alert=True)
         return
 
-    await TASK_MANAGER.move_to_next_task(user.user_id)
+    await task_manager.move_to_next_task(user.user_id)
 
     await callback.message.edit_text(
         "🎉 <b>Тест 1 завершен!</b>\n\n" "Переходим к следующему тесту...",
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text=MESSAGES["button_inq_test_start"], callback_data="start_inq_task")]
+                [InlineKeyboardButton(text=MESSAGES["button_inq_task_start"], callback_data="start_inq_task")]
             ]
         ),
     )
@@ -82,12 +95,12 @@ async def process_inq_answer(callback: CallbackQuery):
 
     user = await get_or_create_user(user_id=callback.from_user.id, username=callback.from_user.username)
 
-    success, message_text = await TASK_MANAGER.process_inq_answer(user, option)
+    success, message_text = await task_manager.process_inq_answer(user, option)
     if not success:
         await callback.answer(f"❌ {message_text}", show_alert=True)
         return
 
-    state = TASK_MANAGER.get_task_state(user.user_id)
+    state = task_manager.get_task_state(user.user_id)
     if not state:
         await callback.answer(MESSAGES["task_incorrect"], show_alert=True)
         return
@@ -95,12 +108,12 @@ async def process_inq_answer(callback: CallbackQuery):
     score = INQ_SCORES_PER_QUESTION[state["current_step"] - 1]
     await callback.answer(f"✅ Вариант {option} получил {score} баллов")
 
-    if TASK_MANAGER.is_inq_question_completed(user.user_id, question_num):
+    if task_manager.is_inq_question_completed(user.user_id, question_num):
         if question_num + 1 < TaskEntity.inq.value.get_total_questions():
-            await TASK_MANAGER.move_to_next_question(user.user_id)
+            await task_manager.move_to_next_question(user.user_id)
             await send_inq_question(callback.message, user.user_id, question_num + 1)
         else:
-            await TASK_MANAGER.move_to_next_task(user.user_id)
+            await task_manager.move_to_next_task(user.user_id)
             await callback.message.edit_text(
                 "🎉 <b>Тест 2 завершен!</b>\n\n" "Переходим к финальному тесту...",
                 reply_markup=InlineKeyboardMarkup(
@@ -120,14 +133,14 @@ async def go_back(callback: CallbackQuery):
     """
     user = await get_or_create_user(user_id=callback.from_user.id, username=callback.from_user.username)
 
-    success, message_text, new_state = await TASK_MANAGER.go_back_question(user)
+    success, message_text, new_state = await task_manager.go_back_question(user)
     if not success:
         await callback.answer(f"❌ {message_text}", show_alert=True)
         return
 
     await callback.answer(MESSAGES["go_back_completed"])
 
-    if new_state["current_task"] == TaskType.inq.value:
+    if new_state["current_task_type"] == TaskType.inq.value:
         await send_inq_question(callback.message, user.user_id, new_state["current_question"])
 
 
@@ -150,7 +163,7 @@ async def process_epi_answer(callback: CallbackQuery):
 
     user = await get_or_create_user(user_id=callback.from_user.id, username=callback.from_user.username)
 
-    success, message_text = await TASK_MANAGER.process_epi_answer(user, answer)
+    success, message_text = await task_manager.process_epi_answer(user, answer)
     if not success:
         await callback.answer(f"❌ {message_text}", show_alert=True)
         return

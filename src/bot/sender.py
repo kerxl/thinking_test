@@ -1,15 +1,15 @@
 from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
-
 from config.const import (
     TaskEntity,
     MESSAGES,
-    TASK_MANAGER,
     TaskSection,
     AnswerOptions,
     PRIORITIES_LENGTH_SCORES_PER_QUESTION,
     INQ_SCORES_PER_QUESTION,
     INQ_LENGTH_SCORES_PER_QUESTION,
 )
+
+from main import task_manager
 
 
 async def send_priorities_task(message: Message, user_id: int):
@@ -18,7 +18,7 @@ async def send_priorities_task(message: Message, user_id: int):
         await message.edit_text(MESSAGES["task_not_loaded"])
         return
 
-    text = f"<b>Тест 1 из 3: Расстановка приоритетов</b>\n\n"
+    text = f"<b>Тест 1✅ из 3: Расстановка приоритетов</b>\n\n"
     text += f"📝 1 / 1\n\n"
     text += f"{question['text']}\n\n"
 
@@ -26,15 +26,22 @@ async def send_priorities_task(message: Message, user_id: int):
         text += f"<b>{i}️⃣ {category['title']}</b>\n"
         text += f"{category['description']}\n\n"
 
-    state = TASK_MANAGER.get_task_state(user_id)
+    state = task_manager.get_task_state(user_id)
     used_scores = []
+    answered_categories = set()
     if state and TaskSection.priorities.value in state["answers"]:
-        used_scores = set(state["answers"][TaskSection.priorities.value].values())
+        priorities_answers = state["answers"][TaskSection.priorities.value]
+        used_scores = set(priorities_answers.values())
+        answered_categories = set(priorities_answers.keys())
 
     keyboard = []
     for i, category in enumerate(question["categories"]):
         category_id = category["id"]
         title = category["title"]
+
+        # Пропускаем категории, для которых уже выбран балл
+        if category_id in answered_categories:
+            continue
 
         score_buttons = []
         for score in AnswerOptions.priorities.value:
@@ -61,15 +68,15 @@ async def send_inq_question(message: Message, user_id: int, question_num: int):
         await message.edit_text(MESSAGES["task_not_found"])
         return
 
-    state = TASK_MANAGER.get_task_state(user_id)
+    state = task_manager.get_task_state(user_id)
     if not state:
         return
 
-    available_options = TASK_MANAGER.get_inq_available_options(user_id, question_num)
+    available_options = task_manager.get_inq_available_options(user_id, question_num)
     current_step = state["current_step"]
     next_score = INQ_SCORES_PER_QUESTION[current_step] if current_step < INQ_LENGTH_SCORES_PER_QUESTION else 1
 
-    text = f"<b>Тест 2 из 3: Стили мышления</b>\n\n"
+    text = f"<b>Тест 2✅ из 3: Стили мышления</b>\n\n"
     text += f"📝 {question_num + 1} / {TaskEntity.inq.value.get_total_questions()}\n\n"
     text += f"{question['text']}\n\n"
 
@@ -114,7 +121,7 @@ async def send_epi_question(message: Message, user_id: int, question_num: int):
 
     total_questions = TaskEntity.epi.value.get_total_questions()
 
-    text = f"<b>Тест 3 из 3: Личностный тест</b>\n\n"
+    text = f"<b>Тест 3✅ из 3: Личностный тест</b>\n\n"
     text += f"📝 {question_num + 1} / {total_questions}\n\n"
     text += f"{question['text']}"
 

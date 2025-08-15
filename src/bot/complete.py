@@ -1,6 +1,7 @@
 from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
 
-from config.const import TASK_MANAGER, MESSAGES
+from main import task_manager
+from config.const import MESSAGES
 from src.core.admin_reports import admin_reports
 from src.database.operations import get_or_create_user
 
@@ -9,7 +10,7 @@ async def complete_all_tasks(message: Message, user):
     """
     Завершение всего тестирования
     """
-    all_scores = await TASK_MANAGER.complete_all_tasks(user)
+    all_scores = await task_manager.complete_all_tasks(user)
 
     if not all_scores:
         await message.edit_text(MESSAGES["summary_result_error"])

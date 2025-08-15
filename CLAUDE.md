@@ -56,7 +56,7 @@ alembic upgrade head
 ### Configuration
 
 - Environment variables in `.env` file (BOT_TOKEN, DATABASE_URL, ADMIN_USER_ID)
-- Messages and UI text in `messages.json`
+- Messages and UI text in `constants.json`
 - Test questions in JSON files under `questions/` directory
 - Constants and enums in `config/const.py`
 
@@ -75,3 +75,4 @@ alembic upgrade head
 - Перед тем как выполнить какую то python команду не забудь активировать venv
 - Если создаешь новый файл, то клади его в нужную директорию, если такой нет, то создай
 - База данных - Postgresql, для тестирования используй её
+- Перед тем как что то думать и делать, взгляни на изменения в гите. Файлы могут переместиться или переименоваться
