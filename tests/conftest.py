@@ -2,18 +2,33 @@ import pytest
 import asyncio
 import sys
 import os
+import json
 
 # Добавляем корневую директорию проекта в PYTHONPATH
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Фикстура для event loop
-@pytest.fixture(scope="session")
-def event_loop():
-    """Создание event loop для асинхронных тестов"""
-    policy = asyncio.get_event_loop_policy()
-    loop = policy.new_event_loop()
-    yield loop
-    loop.close()
+# Загружаем MESSAGES для тестов
+@pytest.fixture(scope="session", autouse=True)
+def setup_messages():
+    """Загрузка сообщений для тестов"""
+    from config.const import MESSAGES
+    try:
+        with open("config/constants.json", "r", encoding="utf-8") as f:
+            messages = json.load(f)
+            MESSAGES.update(messages)
+    except FileNotFoundError:
+        # Добавляем минимальные сообщения для тестов
+        MESSAGES.update({
+            "answer_saved": "Ответ сохранен",
+            "answer_process_error": "Ошибка обработки ответа",
+            "task_not_found": "Задача не найдена",
+            "task_incorrect": "Неверная задача",
+            "answer_option_incorrect": "Неверная опция",
+            "answer_option_already_exist": "Опция уже выбрана",
+            "go_back_completed": "Возврат выполнен",
+            "go_back_unavailable": "Возврат недоступен",
+            "go_back_error": "Ошибка возврата"
+        })
 
 
 @pytest.fixture

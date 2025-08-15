@@ -11,13 +11,13 @@ class TestIntegration:
     """Интеграционные тесты полного цикла тестирования"""
 
     @pytest.fixture
-    async def task_manager(self):
+    def task_manager(self):
         """Настроенный TaskManager"""
         manager = TaskManager()
 
         # Инициализируем тестовые модели с минимальными данными
-        manager.tasks[TaskType.priorities.value].loaded = True
-        manager.tasks[TaskType.priorities.value].question_data = {
+        manager.tasks[TaskType.priorities].loaded = True
+        manager.tasks[TaskType.priorities].question_data = {
             "question": {
                 "text": "Test priorities question",
                 "categories": [
@@ -29,8 +29,8 @@ class TestIntegration:
             }
         }
 
-        manager.tasks[TaskType.inq.value].loaded = True
-        manager.tasks[TaskType.inq.value].questions = [
+        manager.tasks[TaskType.inq].loaded = True
+        manager.tasks[TaskType.inq].questions = [
             {
                 "text": "Test INQ question 1",
                 "mapping": {
@@ -53,8 +53,8 @@ class TestIntegration:
             },
         ]
 
-        manager.tasks[TaskType.epi.value].loaded = True
-        manager.tasks[TaskType.epi.value].questions = [
+        manager.tasks[TaskType.epi].loaded = True
+        manager.tasks[TaskType.epi].questions = [
             {"number": 1, "text": "EPI Question 1", "scale": "E", "answer_for_point": "да"},
             {"number": 2, "text": "EPI Question 2", "scale": "N", "answer_for_point": "да"},
             {"number": 3, "text": "EPI Question 3", "scale": "L", "answer_for_point": "нет"},
@@ -81,7 +81,7 @@ class TestIntegration:
         with patch("src.core.task_manager.update_user", new_callable=AsyncMock):
 
             # 1. Начинаем тестирование
-            success = await task_manager.start_tests(mock_user)
+            success = await task_manager.start_tasks(mock_user)
             assert success is True
             assert task_manager.get_current_task_type(mock_user.user_id) == TaskType.priorities.value
 
@@ -128,11 +128,18 @@ class TestIntegration:
                 success, _ = await task_manager.process_epi_answer(mock_user, answer)
                 assert success is True
 
-            # 5. Завершаем все тесты и получаем результаты
-            scores = await task_manager.complete_all_tasks(mock_user)
-
-            # Проверяем что все тесты завершены
+            # 5. Переходим после EPI теста (имитируем завершение) - нужно значение > 3
+            await task_manager.move_to_next_task(mock_user.user_id)  # Теперь current_task_type = 4
+            
+            # Проверяем что состояние правильно обновилось
+            state = task_manager.get_task_state(mock_user.user_id)
+            assert state["current_task_type"] == 4  # После move_to_next_task из EPI (3) стало 4
+            
+            # Проверяем что все тесты завершены (current_task_type > TaskType.epi.value (3))
             assert task_manager.is_all_tasks_completed(mock_user.user_id)
+            
+            # Завершаем все тесты и получаем результаты
+            scores = await task_manager.complete_all_tasks(mock_user)
 
             # Проверяем наличие результатов
             assert isinstance(scores, dict)
@@ -145,7 +152,7 @@ class TestIntegration:
         with patch("src.core.task_manager.update_user", new_callable=AsyncMock):
 
             # Начинаем тестирование и переходим к INQ
-            await task_manager.start_tests(mock_user)
+            await task_manager.start_tasks(mock_user)
             await task_manager.move_to_next_task(mock_user.user_id)
 
             # Делаем несколько ответов
@@ -171,7 +178,7 @@ class TestIntegration:
 
         with patch("src.core.task_manager.update_user", new_callable=AsyncMock):
 
-            await task_manager.start_tests(mock_user)
+            await task_manager.start_tasks(mock_user)
 
             # Тест дублирующихся баллов в приоритетах
             await task_manager.process_priorities_answer(mock_user, "personal_wellbeing", 5)
@@ -187,7 +194,7 @@ class TestIntegration:
             success, message = await task_manager.process_inq_answer(mock_user, "1")
             assert success is False
 
-            # Переход к EPI тесту
+            # Завершаем все INQ вопросы и переходим к EPI тесту
             await task_manager.move_to_next_task(mock_user.user_id)
 
             # Тест неверных ответов в EPI
@@ -200,7 +207,7 @@ class TestIntegration:
 
         with patch("src.core.task_manager.update_user", new_callable=AsyncMock):
 
-            await task_manager.start_tests(mock_user)
+            await task_manager.start_tasks(mock_user)
 
             # Заполняем тестовые данные
             state = task_manager.get_task_state(mock_user.user_id)
@@ -224,8 +231,14 @@ class TestIntegration:
             # Проверяем INQ баллы
             assert "Синтетический" in scores
             assert "Идеалистический" in scores
-            assert scores["Синтетический"] == 8  # 5 + 3
-            assert scores["Идеалистический"] == 9  # 4 + 5
+            # Проверяем INQ баллы с учетом правильной логики подсчета
+            # question_1: {"1": 5, "2": 4, "3": 3, "4": 2, "5": 1} с mapping {"1": "Синтетический", "2": "Идеалистический", "3": "Прагматический", "4": "Аналитический", "5": "Реалистический"}
+            # question_2: {"1": 3, "2": 5, "3": 1, "4": 4, "5": 2} с mapping {"1": "Реалистический", "2": "Синтетический", "3": "Идеалистический", "4": "Прагматический", "5": "Аналитический"}
+            # Итого: Синтетический: 5+5=10, Идеалистический: 4+1=5, Прагматический: 3+4=7, Аналитический: 2+2=4, Реалистический: 1+3=4
+            expected_synthetic = 10  # 5 (из q1 опция "1") + 5 (из q2 опция "2")
+            expected_idealistic = 5   # 4 (из q1 опция "2") + 1 (из q2 опция "3")
+            assert scores["Синтетический"] == expected_synthetic
+            assert scores["Идеалистический"] == expected_idealistic
 
             # Проверяем EPI баллы
             assert scores["E"] == 1

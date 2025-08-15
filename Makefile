@@ -55,6 +55,14 @@ check: ## Проверить готовность системы
 	@echo "$(GREEN)Проверка готовности системы...$(NC)"
 	$(PYTHON) check_system.py
 
+simulate: ## Симуляция прохождения тестов пользователем
+	@echo "$(GREEN)Запуск симуляции пользователя...$(NC)"
+	$(PYTHON) simulate_user.py
+
+simulate-fast: ## Быстрая симуляция (сокращенная версия для демонстрации)
+	@echo "$(GREEN)Запуск быстрой симуляции...$(NC)"
+	$(PYTHON) simulate_user_fast.py
+
 run: ## Запустить бота
 	@echo "$(GREEN)Запуск бота...$(NC)"
 	$(PYTHON) src/bot/main.py

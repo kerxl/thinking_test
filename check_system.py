@@ -53,9 +53,9 @@ def check_required_files():
     required_files = [
         "requirements.txt",
         "config/constants.json",
-        "questions/first_task.json",
-        "questions/second_task.json",
-        "questions/third_task.json",
+        "questions/first_test.json",
+        "questions/second_test.json",
+        "questions/third_test.json",
         "src/bot/main.py",
     ]
 

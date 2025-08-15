@@ -24,7 +24,7 @@ class TestTaskManager:
         return user
 
     @pytest.mark.asyncio
-    async def test_start_tests(self, task_manager, mock_user):
+    async def test_start_tasks(self, task_manager, mock_user):
         """Тест начала тестирования"""
         # Mock update_user function
         import src.core.task_manager
