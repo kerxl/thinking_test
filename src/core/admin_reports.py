@@ -1,5 +1,6 @@
 import logging
 from typing import Dict
+import asyncio
 
 import httpx
 import random
@@ -51,7 +52,6 @@ class AdminReports:
         return self.style_mapping.get(style_key, style_key)
 
     def get_temperament_type(self, user_data: User) -> str:
-
         if user_data.age:
             return self.temperaments[user_data.age % len(self.temperaments)]
         return random.choice(self.temperaments)
@@ -111,26 +111,66 @@ class AdminReports:
             logger.warning("ADMIN_USER_ID не настроен - отчет не отправлен")
             return False
 
-        try:
-            report = self.format_admin_report(user_data, scores)
+        max_retries = 3
+        base_delay = 1
 
-            url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+        for attempt in range(max_retries):
+            try:
+                report = self.format_admin_report(user_data, scores)
 
-            payload = {"chat_id": ADMIN_USER_ID, "text": report, "parse_mode": "HTML", "disable_web_page_preview": True}
+                url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
-            async with httpx.AsyncClient() as client:
-                response = await client.post(url, json=payload, timeout=30)
+                payload = {
+                    "chat_id": ADMIN_USER_ID,
+                    "text": report,
+                    "parse_mode": "HTML",
+                    "disable_web_page_preview": True,
+                }
 
-                if response.status_code == 200:
-                    logger.info(f"Отчет отправлен администратору для пользователя {user_data.user_id}")
-                    return True
-                else:
-                    logger.error(f"Ошибка отправки отчета администратору: {response.status_code} - {response.text}")
-                    return False
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(url, json=payload, timeout=30)
 
-        except Exception as e:
-            logger.error(f"Ошибка при отправке отчета администратору: {e}")
-            return False
+                    if response.status_code == 200:
+                        logger.info(f"Отчет отправлен администратору для пользователя {user_data.user_id}")
+                        return True
+                    elif response.status_code == 429:
+                        # Rate limit exceeded
+                        try:
+                            response_data = response.json()
+                            retry_after = response_data.get("parameters", {}).get("retry_after", 60)
+                        except:
+                            retry_after = 60
+
+                        logger.warning(f"Rate limit (попытка {attempt + 1}/{max_retries}). Жду {retry_after} секунд...")
+
+                        if attempt < max_retries - 1:  # Не ждем на последней попытке
+                            await asyncio.sleep(retry_after)
+                            continue
+                        else:
+                            logger.error(f"Превышен лимит попыток отправки отчета для пользователя {user_data.user_id}")
+                            return False
+                    else:
+                        logger.error(f"Ошибка отправки отчета администратору: {response.status_code} - {response.text}")
+
+                        # Для других ошибок делаем экспоненциальную задержку
+                        if attempt < max_retries - 1:
+                            delay = base_delay * (2**attempt)
+                            logger.info(f"Повторная попытка через {delay} секунд...")
+                            await asyncio.sleep(delay)
+                            continue
+                        return False
+
+            except Exception as e:
+                logger.error(f"Ошибка при отправке отчета администратору (попытка {attempt + 1}/{max_retries}): {e}")
+
+                if attempt < max_retries - 1:
+                    delay = base_delay * (2**attempt)
+                    logger.info(f"Повторная попытка через {delay} секунд...")
+                    await asyncio.sleep(delay)
+                    continue
+                return False
+
+        return False
 
 
 admin_reports = AdminReports()

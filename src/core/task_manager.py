@@ -243,15 +243,15 @@ class TaskManager:
 
     async def complete_all_tasks(self, user: "User") -> Dict[str, Any]:
         try:
-            test_state = self.get_task_state(user.user_id)
-            if not test_state:
+            task_state = self.get_task_state(user.user_id)
+            if not task_state:
                 return {}
 
             all_scores = {}
 
-            priorities_scores = TaskEntity.priorities.value.calculate_scores(test_state["answers"])
-            inq_scores = TaskEntity.inq.value.calculate_scores(test_state["answers"])
-            epi_scores = TaskEntity.epi.value.calculate_scores(test_state["answers"])
+            priorities_scores = TaskEntity.priorities.value.calculate_scores(task_state["answers"])
+            inq_scores = TaskEntity.inq.value.calculate_scores(task_state["answers"])
+            epi_scores = TaskEntity.epi.value.calculate_scores(task_state["answers"])
 
             await update_user(
                 user_id=user.user_id,

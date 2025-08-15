@@ -234,7 +234,7 @@ class EpiTask(BaseTest):
             question_num = question["number"]
             user_answer = epi_answers.get(str(question_num))
 
-            if user_answer and str(user_answer).lower() == question["answer_for_point"].lower():
+            if user_answer and question.get("answer_for_point") and str(user_answer).lower() == str(question["answer_for_point"]).lower():
                 scale = question["scale"]
                 if scale in scores:
                     scores[scale] += 1
