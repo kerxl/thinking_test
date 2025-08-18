@@ -113,8 +113,8 @@ class SimulatedUser:
         self.age = random.randint(18, 65)
         self.bot = Bot(token=BOT_TOKEN)
 
-        # Данные для ответов
-        self.priorities_categories = ["personal_wellbeing", "material_career", "relationships", "self_realization"]
+        # Данные для ответов (номера категорий в новом интерфейсе)
+        self.priorities_categories = ["1", "2", "3", "4"]  # Номера категорий для нового интерфейса
 
     def log(self, message: str):
         """Логирование действий пользователя"""
@@ -196,59 +196,53 @@ class SimulatedUser:
         return user
 
     async def complete_priorities_test(self, user: DBUser):
-        """Прохождение теста приоритетов"""
+        """Прохождение теста приоритетов (новая логика с пошаговым выбором)"""
         self.log("📊 Начинаю тест приоритетов...")
 
-        # Создаем случайную расстановку приоритетов от 1 до 5
-        scores = [1, 2, 3, 4, 5]
-        random.shuffle(scores)
+        # В новом интерфейсе выбираем категории по порядку приоритета
+        # Баллы назначаются автоматически: 4, 3, 2, 1
+        categories = ["1", "2", "3", "4"]  # Номера всех категорий
+        random.shuffle(categories)  # Случайный порядок выбора
 
-        for i, category in enumerate(self.priorities_categories):
-            score = scores[i]
+        for step, category_num in enumerate(categories):
+            # Получаем название категории для логов
+            question = task_manager.tasks[TaskType.priorities].get_question()
+            category_title = question["categories"][int(category_num) - 1]["title"] if question else f"Категория {category_num}"
+            
+            self.log(f"🔘 Выбираю категорию {category_num} ({category_title})")
 
-            self.log(f"🔘 Выбираю для '{category}' балл: {score}")
-
-            # Отправляем ответ через TaskManager
+            # Отправляем ответ через новую функцию TaskManager
             try:
-                success, message = await task_manager.process_priorities_answer(user, category, score)
+                success, message = await task_manager.process_priorities_step_answer(user, category_num)
             except Exception as e:
-                self.log(f"💥 Исключение при process_priorities_answer: {e}")
+                self.log(f"💥 Исключение при process_priorities_step_answer: {e}")
                 success, message = False, str(e)
 
             if not success:
-                self.log(f"❌ Ошибка при выборе балла: {message}")
-                # Если балл уже использован, пробуем другой
-                available_scores = [s for s in [1, 2, 3, 4, 5] if s not in [scores[j] for j in range(i)]]
-                if available_scores:
-                    score = random.choice(available_scores)
-                    scores[i] = score
-                    self.log(f"🔄 Пробую другой балл: {score}")
-                    success, message = await task_manager.process_priorities_answer(user, category, score)
-
-                    # Если все еще ошибка, попробуем все доступные баллы
-                    retry_count = 0
-                    while not success and available_scores and retry_count < 3:
-                        available_scores.remove(score) if score in available_scores else None
-                        if available_scores:
-                            score = random.choice(available_scores)
-                            scores[i] = score
-                            self.log(f"🔄 Повторная попытка с баллом: {score}")
-                            success, message = await task_manager.process_priorities_answer(user, category, score)
-                        retry_count += 1
+                self.log(f"❌ Ошибка при выборе категории: {message}")
+                # Если категория уже выбрана, пробуем другую доступную
+                available_categories = task_manager.get_priorities_available_categories(user.user_id)
+                if available_categories:
+                    category_num = random.choice(available_categories)
+                    category_title = question["categories"][int(category_num) - 1]["title"] if question else f"Категория {category_num}"
+                    self.log(f"🔄 Пробую другую категорию: {category_num} ({category_title})")
+                    success, message = await task_manager.process_priorities_step_answer(user, category_num)
 
             if success:
-                self.log(f"✅ Балл {score} принят")
+                # Получаем балл который был присвоен (зависит от шага)
+                from config.const import PRIORITIES_SCORES_PER_QUESTION
+                current_score = PRIORITIES_SCORES_PER_QUESTION[step] if step < len(PRIORITIES_SCORES_PER_QUESTION) else 1
+                self.log(f"✅ Категория принята, балл: {current_score}")
             else:
-                self.log(f"❌ Не удалось выбрать балл: {message}")
+                self.log(f"❌ Не удалось выбрать категорию: {message}")
 
         # Проверяем завершение теста
         if task_manager.is_priorities_task_completed(user.user_id):
             self.log("🎉 Тест приоритетов завершен!")
-            self.log("🔘 Нажимаю кнопку 'Завершить тест 1'")
 
             # Переходим к следующему тесту
             await task_manager.move_to_next_task(user.user_id)
-            self.log("🔘 Нажимаю кнопку 'Тест 2'")
+            self.log("🔘 Переход к INQ тесту")
             return True
         else:
             self.log("❌ Тест приоритетов не завершен")

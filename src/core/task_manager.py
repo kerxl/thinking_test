@@ -10,6 +10,8 @@ from config.const import (
     TaskAnswersLimit,
     INQ_LENGTH_SCORES_PER_QUESTION,
     INQ_SCORES_PER_QUESTION,
+    PRIORITIES_LENGTH_SCORES_PER_QUESTION,
+    PRIORITIES_SCORES_PER_QUESTION,
 )
 from src.database.operations import update_user
 
@@ -90,13 +92,10 @@ class TaskManager:
 
             task_state["answers"][TaskSection.priorities.value][category_id] = score
             task_state["current_step"] += 1
-            
-            # Сохраняем действие в историю для возможности отката
-            task_state["history"].append({
-                "task": TaskType.priorities.value,
-                "category_id": category_id,
-                "score": score
-            })
+
+            task_state["history"].append(
+                {"task": TaskType.priorities.value, "category_id": category_id, "score": score}
+            )
 
             await update_user(
                 user_id=user.user_id, current_step=task_state["current_step"], answers_json=task_state["answers"]
@@ -109,6 +108,63 @@ class TaskManager:
 
         except Exception as e:
             logger.error(f"Ошибка при обработке ответа теста приоритетов: {e}")
+            return False, MESSAGES["answer_process_error"]
+
+    async def process_priorities_step_answer(self, user: "User", category_num: str) -> Tuple[bool, str]:
+        try:
+            task_state = self.get_task_state(user.user_id)
+            if not task_state:
+                return False, MESSAGES["task_not_found"]
+
+            if task_state["current_task_type"] != TaskType.priorities.value:
+                return False, MESSAGES["task_incorrect"]
+
+            step = task_state["current_step"]
+            if step >= PRIORITIES_LENGTH_SCORES_PER_QUESTION:
+                return False, MESSAGES["answer_option_limit"]
+
+            if TaskSection.priorities.value not in task_state["answers"]:
+                task_state["answers"][TaskSection.priorities.value] = {}
+
+            # Получаем данные категории для сохранения названия
+            question = TaskEntity.priorities.value.get_question()
+            if not question or "categories" not in question:
+                return False, "Ошибка загрузки вопроса"
+            
+            category_num_int = int(category_num)
+            if not (1 <= category_num_int <= len(question["categories"])):
+                return False, f"Неверный номер категории: {category_num}"
+            
+            category_data = question["categories"][category_num_int - 1]
+            category_title = category_data["title"]
+            
+            # Проверяем что эта категория еще не выбрана
+            if category_title in task_state["answers"][TaskSection.priorities.value]:
+                return False, f"Категория '{category_title}' уже выбрана"
+
+            score = PRIORITIES_SCORES_PER_QUESTION[step]
+            # Сохраняем по названию категории, а не по техническому ключу
+            task_state["answers"][TaskSection.priorities.value][category_title] = score
+
+            task_state["history"].append(
+                {"task": TaskType.priorities.value, "category_num": category_num, "score": score}
+            )
+
+            task_state["current_step"] = step + 1
+
+            await update_user(
+                user_id=user.user_id,
+                current_step=step + 1,
+                answers_json=task_state["answers"],
+            )
+
+            logger.info(
+                f"Ответ в тесте приоритетов (новая логика): пользователь {user.user_id}, категория {category_num}, балл {score}"
+            )
+            return True, MESSAGES["answer_saved"]
+
+        except Exception as e:
+            logger.error(f"Ошибка при обработке ответа теста приоритетов (новая логика): {e}")
             return False, MESSAGES["answer_process_error"]
 
     async def process_inq_answer(self, user: "User", option: str) -> Tuple[bool, str]:
@@ -229,6 +285,77 @@ class TaskManager:
 
         return [opt for opt in AnswerOptions.inq.value if opt not in used_options]
 
+    def get_priorities_available_categories(self, user_id: int) -> List[str]:
+        state = self.get_task_state(user_id)
+        if not state:
+            return ["1", "2", "3", "4"]
+
+        test_section = state["answers"].get("priorities", {})
+        used_category_titles = set(test_section.keys())
+        
+        # Получаем вопрос для сопоставления названий с номерами
+        question = TaskEntity.priorities.value.get_question()
+        if not question or "categories" not in question:
+            return ["1", "2", "3", "4"]
+
+        # Возвращаем номера категорий, названия которых еще не использованы
+        available = []
+        for i, category in enumerate(question["categories"], 1):
+            if category["title"] not in used_category_titles:
+                available.append(str(i))
+        
+        return available
+
+    def get_priorities_remaining_categories_data(self, user_id: int) -> List[dict]:
+        """Возвращает данные оставшихся категорий с новой нумерацией"""
+        state = self.get_task_state(user_id)
+        question = TaskEntity.priorities.value.get_question()
+        if not state or not question:
+            return []
+
+        test_section = state["answers"].get("priorities", {})
+        used_category_titles = set(test_section.keys())
+
+        remaining = []
+        for i, category in enumerate(question["categories"], 1):
+            if category["title"] not in used_category_titles:
+                remaining.append({"original_index": i, "category_data": category})
+
+        return remaining
+
+    def get_inq_remaining_options_data(self, user_id: int, question_num: int) -> dict:
+        """Возвращает данные оставшихся вариантов INQ с новой нумерацией"""
+        state = self.get_task_state(user_id)
+        question = TaskEntity.inq.value.get_question(question_num)
+        if not state or not question:
+            return {"options": [], "base_text": ""}
+
+        test_section = state["answers"].get("inq", {})
+        question_key = f"question_{question_num + 1}"
+        used_options = set(test_section.get(question_key, {}).keys())
+
+        full_text = question["text"]
+        lines = full_text.split("\n")
+
+        base_text_lines = []
+        options_data = []
+        in_options = False
+
+        for line in lines:
+            stripped = line.strip()
+            if stripped.startswith(("1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣")):
+                in_options = True
+                option_num = stripped[0]
+                option_text = stripped.split("️⃣", 1)[1].strip()
+                if option_num not in used_options:
+                    options_data.append({"original_option": option_num, "text": option_text})
+            elif not in_options:
+                base_text_lines.append(line)
+
+        base_text = "\n".join(base_text_lines).strip()
+
+        return {"base_text": base_text, "options": options_data}
+
     async def move_to_next_task(self, user_id: int):
         state = self.get_task_state(user_id)
         if state:
@@ -295,23 +422,47 @@ class TaskManager:
 
             if last_action["task"] == TaskType.priorities.value:
                 # Обработка отката для теста приоритетов
-                category_id = last_action["category_id"]
-                
-                # Удаляем ответ из приоритетов
-                if (TaskSection.priorities.value in task_state["answers"] 
-                    and category_id in task_state["answers"][TaskSection.priorities.value]):
-                    del task_state["answers"][TaskSection.priorities.value][category_id]
-                
-                # Обновляем текущий шаг
-                current_answers = task_state["answers"].get(TaskSection.priorities.value, {})
-                task_state["current_step"] = len(current_answers)
-                
+                if "category_num" in last_action:
+                    category_num = last_action["category_num"]
+                    
+                    # Получаем название категории по номеру
+                    question = TaskEntity.priorities.value.get_question()
+                    if question and "categories" in question:
+                        try:
+                            category_num_int = int(category_num)
+                            if 1 <= category_num_int <= len(question["categories"]):
+                                category_title = question["categories"][category_num_int - 1]["title"]
+                                
+                                # Удаляем ответ по названию категории
+                                if (
+                                    TaskSection.priorities.value in task_state["answers"]
+                                    and category_title in task_state["answers"][TaskSection.priorities.value]
+                                ):
+                                    del task_state["answers"][TaskSection.priorities.value][category_title]
+                        except (ValueError, IndexError):
+                            pass
+
+                    current_answers = task_state["answers"].get(TaskSection.priorities.value, {})
+                    task_state["current_step"] = len(current_answers)
+                else:
+                    # Старая логика отката для совместимости
+                    category_id = last_action["category_id"]
+
+                    if (
+                        TaskSection.priorities.value in task_state["answers"]
+                        and category_id in task_state["answers"][TaskSection.priorities.value]
+                    ):
+                        del task_state["answers"][TaskSection.priorities.value][category_id]
+
+                    current_answers = task_state["answers"].get(TaskSection.priorities.value, {})
+                    task_state["current_step"] = len(current_answers)
+
                 await update_user(
                     user_id=user.user_id,
                     current_step=task_state["current_step"],
                     answers_json=task_state["answers"],
                 )
-                
+
             elif last_action["task"] == TaskType.inq.value:
                 question_num = last_action["question"]
                 option = last_action["option"]

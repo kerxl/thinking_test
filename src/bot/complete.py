@@ -16,7 +16,7 @@ async def complete_all_tasks(message: Message, user):
         await message.edit_text(MESSAGES["summary_result_error"])
         return
 
-    result_text = "🎉 <b>Все тесты завершены!</b>\n\n"
+    result_text = "🎉 <b>Все тесты завершены!✅</b>\n\n"
     result_text += "📊 <b>Ваши результаты:</b>\n\n"
 
     result_text += "<b>🧠 Стили мышления:</b>\n"
@@ -43,13 +43,12 @@ async def complete_all_tasks(message: Message, user):
         ),
     )
 
-    # Получаем свежие данные пользователя из базы данных  
     from sqlalchemy import select
     from src.database.models import AsyncSessionLocal, User
-    
+
     async with AsyncSessionLocal() as session:
         result = await session.execute(select(User).where(User.user_id == user.user_id))
         updated_user = result.scalar_one_or_none()
-        
+
     if updated_user:
         await admin_reports.send_to_admin(updated_user, all_scores)

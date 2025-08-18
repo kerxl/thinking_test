@@ -3,7 +3,14 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 
 from .globals import task_manager, dp
-from config.const import MESSAGES, PersonalDataStates, INQ_SCORES_PER_QUESTION, TaskEntity, TaskType
+from config.const import (
+    MESSAGES,
+    PersonalDataStates,
+    INQ_SCORES_PER_QUESTION,
+    TaskEntity,
+    TaskType,
+    PRIORITIES_SCORES_PER_QUESTION,
+)
 from .complete import complete_all_tasks
 from .sender import send_priorities_task, send_inq_question, send_epi_question
 from src.database.operations import get_or_create_user
@@ -32,48 +39,50 @@ async def start_tasks(callback: CallbackQuery):
     await callback.answer()
 
 
-@dp.callback_query(F.data.startswith("priority_"))
+@dp.callback_query(F.data.startswith("priority_new_"))
 async def process_priorities_answer(callback: CallbackQuery):
     """
     Обработка ответов на тест приоритетов
     """
-    parts = callback.data.split("_")
-    category_id = "_".join(parts[1:-1])
-    score = int(parts[-1])
+    _, _, new_index_str = callback.data.split("_")
+    new_index = int(new_index_str)
 
     user = await get_or_create_user(user_id=callback.from_user.id, username=callback.from_user.username)
 
-    success, message_text = await task_manager.process_priorities_answer(user, category_id, score)
+    remaining_categories = task_manager.get_priorities_remaining_categories_data(user.user_id)
+
+    if new_index >= len(remaining_categories):
+        await callback.answer("❌ Неверный выбор категории", show_alert=True)
+        return
+
+    original_index = remaining_categories[new_index]["original_index"]
+    category_title = remaining_categories[new_index]["category_data"]["title"]
+
+    success, message_text = await task_manager.process_priorities_step_answer(user, str(original_index))
     if not success:
         await callback.answer(f"❌ {message_text}", show_alert=True)
         return
 
-    await callback.answer(f"✅ Выбран балл {score}")
-    await send_priorities_task(callback.message, user.user_id)
-
-
-@dp.callback_query(F.data == "complete_priorities")
-async def complete_priorities(callback: CallbackQuery):
-    """
-    Завершение теста приоритетов
-    """
-    user = await get_or_create_user(user_id=callback.from_user.id, username=callback.from_user.username)
-
-    if not task_manager.is_priorities_task_completed(user.user_id):
-        await callback.answer(MESSAGES["need_finish_all_categories"], show_alert=True)
+    state = task_manager.get_task_state(user.user_id)
+    if not state:
+        await callback.answer(MESSAGES["task_incorrect"], show_alert=True)
         return
 
-    await task_manager.move_to_next_task(user.user_id)
+    score = PRIORITIES_SCORES_PER_QUESTION[state["current_step"] - 1]
+    await callback.answer(f"✅ '{category_title}' получила {score} баллов")
 
-    await callback.message.edit_text(
-        "🎉 <b>Тест 1 завершен!</b>\n\n" "Переходим к следующему тесту...",
-        reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(text=MESSAGES["button_inq_task_start"], callback_data="start_inq_task")]
-            ]
-        ),
-    )
-    await callback.answer()
+    if task_manager.is_priorities_task_completed(user.user_id):
+        await callback.message.edit_text(
+            "🎉 <b>Тест 1 завершен!✅</b>\n\n" "Переходим к следующему тесту...",
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [InlineKeyboardButton(text=MESSAGES["button_inq_task_start"], callback_data="start_inq_task")]
+                ]
+            ),
+        )
+        await task_manager.move_to_next_task(user.user_id)
+    else:
+        await send_priorities_task(callback.message, user.user_id)
 
 
 @dp.callback_query(F.data == "start_inq_task")
@@ -85,17 +94,26 @@ async def start_inq_task(callback: CallbackQuery):
     await callback.answer()
 
 
-@dp.callback_query(F.data.startswith("inq_"))
+@dp.callback_query(F.data.startswith("inq_new_"))
 async def process_inq_answer(callback: CallbackQuery):
     """
     Обработка ответов INQ теста
     """
-    _, question_num_str, option = callback.data.split("_")
-    question_num = int(question_num_str)
+    parts = callback.data.split("_")
+    question_num = int(parts[2])
+    new_index = int(parts[3])
 
     user = await get_or_create_user(user_id=callback.from_user.id, username=callback.from_user.username)
 
-    success, message_text = await task_manager.process_inq_answer(user, option)
+    remaining_data = task_manager.get_inq_remaining_options_data(user.user_id, question_num)
+
+    if new_index >= len(remaining_data["options"]):
+        await callback.answer("❌ Неверный выбор варианта", show_alert=True)
+        return
+
+    original_option = remaining_data["options"][new_index]["original_option"]
+
+    success, message_text = await task_manager.process_inq_answer(user, original_option)
     if not success:
         await callback.answer(f"❌ {message_text}", show_alert=True)
         return
@@ -106,7 +124,7 @@ async def process_inq_answer(callback: CallbackQuery):
         return
 
     score = INQ_SCORES_PER_QUESTION[state["current_step"] - 1]
-    await callback.answer(f"✅ Вариант {option} получил {score} баллов")
+    await callback.answer(f"✅ Вариант получил {score} баллов")
 
     if task_manager.is_inq_question_completed(user.user_id, question_num):
         if question_num + 1 < TaskEntity.inq.value.get_total_questions():
@@ -115,7 +133,7 @@ async def process_inq_answer(callback: CallbackQuery):
         else:
             await task_manager.move_to_next_task(user.user_id)
             await callback.message.edit_text(
-                "🎉 <b>Тест 2 завершен!</b>\n\n" "Переходим к финальному тесту...",
+                "🎉 <b>Тест 2 завершен!✅</b>\n\n" "Переходим к финальному тесту...",
                 reply_markup=InlineKeyboardMarkup(
                     inline_keyboard=[
                         [InlineKeyboardButton(text=MESSAGES["button_epi_task_start"], callback_data="start_epi_task")]

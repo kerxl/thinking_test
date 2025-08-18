@@ -2,11 +2,10 @@ from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
 from config.const import (
     TaskEntity,
     MESSAGES,
-    TaskSection,
-    AnswerOptions,
     PRIORITIES_LENGTH_SCORES_PER_QUESTION,
     INQ_SCORES_PER_QUESTION,
     INQ_LENGTH_SCORES_PER_QUESTION,
+    PRIORITIES_SCORES_PER_QUESTION,
 )
 
 from .globals import task_manager
@@ -18,50 +17,52 @@ async def send_priorities_task(message: Message, user_id: int):
         await message.edit_text(MESSAGES["task_not_loaded"])
         return
 
-    text = f"<b>Тест 1✅ из 3: Расстановка приоритетов</b>\n\n"
+    state = task_manager.get_task_state(user_id)
+    if not state:
+        return
+
+    remaining_categories = task_manager.get_priorities_remaining_categories_data(user_id)
+    current_step = state["current_step"]
+    next_score = (
+        PRIORITIES_SCORES_PER_QUESTION[current_step] if current_step < PRIORITIES_LENGTH_SCORES_PER_QUESTION else 1
+    )
+
+    text = f"<b>✅Тест 1 из 3: Расстановка приоритетов</b>\n\n"
     text += f"📝 1 / 1\n\n"
     text += f"{question['text']}\n\n"
 
-    for i, category in enumerate(question["categories"], 1):
+    for i, item in enumerate(remaining_categories, 1):
+        category = item["category_data"]
         text += f"<b>{i}️⃣ {category['title']}</b>\n"
         text += f"{category['description']}\n\n"
 
-    state = task_manager.get_task_state(user_id)
-    used_scores = []
-    answered_categories = set()
-    if state and TaskSection.priorities.value in state["answers"]:
-        priorities_answers = state["answers"][TaskSection.priorities.value]
-        used_scores = set(priorities_answers.values())
-        answered_categories = set(priorities_answers.keys())
+    if current_step == 0:
+        text += f"<b>Следующий балл: {next_score}</b>\n"
+        text += f"<i>Выберите категорию, которой дашь {next_score} баллов:</i>"
+    else:
+        last_category_title = None
+        task_section = state["answers"].get("priorities", {})
+        for category_title, score in task_section.items():
+            if score == PRIORITIES_SCORES_PER_QUESTION[current_step - 1]:
+                last_category_title = category_title
+                break
+
+        if last_category_title:
+            text += f"✅ Вы дали {PRIORITIES_SCORES_PER_QUESTION[current_step - 1]} баллов категории '{last_category_title}'.\n\n"
+
+        text += f"<b>Следующий балл: {next_score}</b>\n"
+        text += f"<i>Выберите категорию, которой дашь {next_score} баллов:</i>"
 
     keyboard = []
-    for i, category in enumerate(question["categories"]):
-        category_id = category["id"]
-        title = category["title"]
-
-        # Пропускаем категории, для которых уже выбран балл
-        if category_id in answered_categories:
-            continue
-
-        score_buttons = []
-        for score in AnswerOptions.priorities.value:
-            if score not in used_scores:
-                score_buttons.append(
-                    InlineKeyboardButton(text=f"{score}️⃣", callback_data=f"priority_{category_id}_{score}")
-                )
-
-        if score_buttons:
-            keyboard.append([InlineKeyboardButton(text=f"{i+1}️⃣ {title}", callback_data="dummy")])
-            keyboard.append(score_buttons)
-
-    # Добавляем кнопку завершения, если все баллы выставлены
-    if len(used_scores) == PRIORITIES_LENGTH_SCORES_PER_QUESTION:
+    if remaining_categories:
         keyboard.append(
-            [InlineKeyboardButton(text=MESSAGES["button_finish_priority_task"], callback_data="complete_priorities")]
+            [
+                InlineKeyboardButton(text=f"{i}️⃣", callback_data=f"priority_new_{i-1}")
+                for i in range(1, len(remaining_categories) + 1)
+            ]
         )
-    
-    # Добавляем кнопку "Назад", если есть выбранные пункты
-    if len(used_scores) > 0:
+
+    if state and state["history"]:
         keyboard.append([InlineKeyboardButton(text=MESSAGES["button_go_back"], callback_data="go_back")])
 
     await message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard))
@@ -77,40 +78,50 @@ async def send_inq_question(message: Message, user_id: int, question_num: int):
     if not state:
         return
 
-    available_options = task_manager.get_inq_available_options(user_id, question_num)
+    remaining_data = task_manager.get_inq_remaining_options_data(user_id, question_num)
     current_step = state["current_step"]
     next_score = INQ_SCORES_PER_QUESTION[current_step] if current_step < INQ_LENGTH_SCORES_PER_QUESTION else 1
 
-    text = f"<b>Тест 2✅ из 3: Стили мышления</b>\n\n"
+    text = f"<b>✅Тест 2 из 3: Стили мышления</b>\n\n"
     text += f"📝 {question_num + 1} / {TaskEntity.inq.value.get_total_questions()}\n\n"
-    text += f"{question['text']}\n\n"
+    text += f"{remaining_data['base_text']}\n\n"
+
+    for i, option_data in enumerate(remaining_data["options"], 1):
+        text += f"<b>{i}️⃣ {option_data['text']}</b>\n\n"
 
     if current_step == 0:
         text += f"<b>Следующий балл: {next_score}</b>\n"
         text += f"<i>Выберите утверждение, которому дашь {next_score} баллов:</i>"
     else:
-        last_option = None
+        last_option_text = None
         task_section = state["answers"].get("inq", {})
         question_key = f"question_{question_num + 1}"
         if question_key in task_section:
             for opt, score in task_section[question_key].items():
                 if score == INQ_SCORES_PER_QUESTION[current_step - 1]:
-                    last_option = opt
+                    full_text = question["text"]
+                    for line in full_text.split("\n"):
+                        if line.strip().startswith(f"{opt}️⃣"):
+                            last_option_text = line.strip().split("️⃣", 1)[1].strip()
+                            break
                     break
 
-        if last_option:
-            text += f"✅ Вы дали {INQ_SCORES_PER_QUESTION[current_step - 1]} баллов утверждению {last_option}.\n\n"
+        if last_option_text:
+            text += (
+                f"✅ Вы дали {INQ_SCORES_PER_QUESTION[current_step - 1]} баллов утверждению:\n'{last_option_text}'\n\n"
+            )
 
         text += f"<b>Следующий балл: {next_score}</b>\n"
         text += f"<i>Выберите утверждение, которому дашь {next_score} баллов:</i>"
 
     keyboard = []
-    keyboard.append(
-        [
-            InlineKeyboardButton(text=f"{option}️⃣", callback_data=f"inq_{question_num}_{option}")
-            for option in available_options
-        ]
-    )
+    if remaining_data["options"]:
+        keyboard.append(
+            [
+                InlineKeyboardButton(text=f"{i}️⃣", callback_data=f"inq_new_{question_num}_{i-1}")
+                for i in range(1, len(remaining_data["options"]) + 1)
+            ]
+        )
 
     if state and state["history"]:
         keyboard.append([InlineKeyboardButton(text=MESSAGES["button_go_back"], callback_data="go_back")])
@@ -126,7 +137,7 @@ async def send_epi_question(message: Message, user_id: int, question_num: int):
 
     total_questions = TaskEntity.epi.value.get_total_questions()
 
-    text = f"<b>Тест 3✅ из 3: Личностный тест</b>\n\n"
+    text = f"<b>✅Тест 3 из 3: Личностный тест</b>\n\n"
     text += f"📝 {question_num + 1} / {total_questions}\n\n"
     text += f"{question['text']}"
 

@@ -41,7 +41,7 @@ class PrioritiesTask(BaseTest):
     def _get_default_priorities_question(self):
         return {
             "question": {
-                "text": "Расставь приоритеты от 5 (максимально важно для тебя сейчас) до 2 (минимально важно). Оцени каждый блок, даже если все кажутся важными. Каждое число можно использовать только один раз.\n\n📝 1 / 1",
+                "text": "Расставь приоритеты от 4 (максимально важно для тебя сейчас) до 1 (минимально важно). Оцени каждый блок, даже если все кажутся важными. Каждое число можно использовать только один раз.\n\n📝 1 / 1",
                 "categories": [
                     {
                         "id": "personal_wellbeing",
@@ -77,7 +77,32 @@ class PrioritiesTask(BaseTest):
 
     def calculate_scores(self, answers: Dict) -> Dict:
         priorities = answers.get("priorities", {})
-        return priorities
+        if not priorities:
+            return {}
+
+        # Данные уже сохранены в правильном формате (по названиям категорий)
+        # Нужно только добавить эмодзи и номера
+        question = self.get_question()
+        if not question or "categories" not in question:
+            return priorities
+
+        formatted_result = {}
+
+        # Создаем маппинг название -> номер для добавления эмодзи
+        title_to_number = {}
+        for i, category in enumerate(question["categories"], 1):
+            title_to_number[category["title"]] = i
+
+        for category_title, score in priorities.items():
+            if category_title in title_to_number:
+                category_num = title_to_number[category_title]
+                emoji_key = f"{category_num}️⃣ {category_title}"
+                formatted_result[emoji_key] = score
+            else:
+                # Если не нашли соответствие, сохраняем как есть
+                formatted_result[category_title] = score
+
+        return formatted_result
 
 
 class InqTask(BaseTest):
@@ -234,7 +259,11 @@ class EpiTask(BaseTest):
             question_num = question["number"]
             user_answer = epi_answers.get(str(question_num))
 
-            if user_answer and question.get("answer_for_point") and str(user_answer).lower() == str(question["answer_for_point"]).lower():
+            if (
+                user_answer
+                and question.get("answer_for_point")
+                and str(user_answer).lower() == str(question["answer_for_point"]).lower()
+            ):
                 scale = question["scale"]
                 if scale in scores:
                     scores[scale] += 1
