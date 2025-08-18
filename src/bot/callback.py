@@ -2,10 +2,10 @@ from aiogram import F
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 
-from main import task_manager
-from config.const import MESSAGES, PersonalDataStates, INQ_SCORES_PER_QUESTION, TaskEntity, TaskType, dp
-from src.bot.complete import complete_all_tasks
-from src.bot.sender import send_priorities_task, send_inq_question, send_epi_question
+from .globals import task_manager, dp
+from config.const import MESSAGES, PersonalDataStates, INQ_SCORES_PER_QUESTION, TaskEntity, TaskType
+from .complete import complete_all_tasks
+from .sender import send_priorities_task, send_inq_question, send_epi_question
 from src.database.operations import get_or_create_user
 
 

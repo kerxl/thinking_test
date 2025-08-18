@@ -65,11 +65,11 @@ simulate-fast: ## Быстрая симуляция (сокращенная ве
 
 run: ## Запустить бота
 	@echo "$(GREEN)Запуск бота...$(NC)"
-	$(PYTHON) src/bot/main.py
+	$(PYTHON) -m src.bot.main
 
 run-debug: ## Запустить бота в режиме отладки
 	@echo "$(GREEN)Запуск бота (режим отладки)...$(NC)"
-	DEBUG=True $(PYTHON) src/bot/main.py
+	DEBUG=True $(PYTHON) -m src.bot.main
 
 clean: ## Очистить временные файлы
 	@echo "$(GREEN)Очистка временных файлов...$(NC)"

@@ -4,7 +4,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
 
 from config.const import PersonalDataStates, MESSAGES, AGE_MAX, AGE_MIN
-from src.bot.main import dp
+from .globals import dp
 from src.database.operations import get_or_create_user, update_user
 
 

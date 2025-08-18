@@ -3,26 +3,19 @@ import json
 import logging
 
 # ignore
-import handler
-import callback
-import proccesser
+from . import handler
+from . import callback
+from . import proccesser
 
-from aiogram import Bot
-from aiogram.enums import ParseMode
-
-from config.const import TaskEntity, dp, MESSAGES
-from config.settings import DEBUG, BOT_TOKEN
-from src.core.task_manager import TaskManager
+from config.const import TaskEntity, MESSAGES
+from config.settings import DEBUG
 from src.database.operations import init_db
+from .globals import bot, dp, task_manager
 
 logging.basicConfig(
     level=logging.INFO if DEBUG else logging.WARNING, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
-
-bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
-
-task_manager = TaskManager()
 
 
 async def main():

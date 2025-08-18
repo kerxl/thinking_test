@@ -1,6 +1,6 @@
 from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
 
-from main import task_manager
+from .globals import task_manager
 from config.const import MESSAGES
 from src.core.admin_reports import admin_reports
 from src.database.operations import get_or_create_user

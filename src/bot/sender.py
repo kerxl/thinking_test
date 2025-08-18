@@ -9,7 +9,7 @@ from config.const import (
     INQ_LENGTH_SCORES_PER_QUESTION,
 )
 
-from main import task_manager
+from .globals import task_manager
 
 
 async def send_priorities_task(message: Message, user_id: int):
