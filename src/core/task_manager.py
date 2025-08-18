@@ -90,6 +90,13 @@ class TaskManager:
 
             task_state["answers"][TaskSection.priorities.value][category_id] = score
             task_state["current_step"] += 1
+            
+            # Сохраняем действие в историю для возможности отката
+            task_state["history"].append({
+                "task": TaskType.priorities.value,
+                "category_id": category_id,
+                "score": score
+            })
 
             await update_user(
                 user_id=user.user_id, current_step=task_state["current_step"], answers_json=task_state["answers"]
@@ -286,7 +293,26 @@ class TaskManager:
 
             last_action = task_state["history"].pop()
 
-            if last_action["task"] == TaskType.inq.value:
+            if last_action["task"] == TaskType.priorities.value:
+                # Обработка отката для теста приоритетов
+                category_id = last_action["category_id"]
+                
+                # Удаляем ответ из приоритетов
+                if (TaskSection.priorities.value in task_state["answers"] 
+                    and category_id in task_state["answers"][TaskSection.priorities.value]):
+                    del task_state["answers"][TaskSection.priorities.value][category_id]
+                
+                # Обновляем текущий шаг
+                current_answers = task_state["answers"].get(TaskSection.priorities.value, {})
+                task_state["current_step"] = len(current_answers)
+                
+                await update_user(
+                    user_id=user.user_id,
+                    current_step=task_state["current_step"],
+                    answers_json=task_state["answers"],
+                )
+                
+            elif last_action["task"] == TaskType.inq.value:
                 question_num = last_action["question"]
                 option = last_action["option"]
 

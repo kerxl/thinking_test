@@ -43,5 +43,13 @@ async def complete_all_tasks(message: Message, user):
         ),
     )
 
-    updated_user = await get_or_create_user(user_id=user.user_id)
-    await admin_reports.send_to_admin(updated_user, all_scores)
+    # Получаем свежие данные пользователя из базы данных  
+    from sqlalchemy import select
+    from src.database.models import AsyncSessionLocal, User
+    
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(User).where(User.user_id == user.user_id))
+        updated_user = result.scalar_one_or_none()
+        
+    if updated_user:
+        await admin_reports.send_to_admin(updated_user, all_scores)

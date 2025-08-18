@@ -140,7 +140,9 @@ async def go_back(callback: CallbackQuery):
 
     await callback.answer(MESSAGES["go_back_completed"])
 
-    if new_state["current_task_type"] == TaskType.inq.value:
+    if new_state["current_task_type"] == TaskType.priorities.value:
+        await send_priorities_task(callback.message, user.user_id)
+    elif new_state["current_task_type"] == TaskType.inq.value:
         await send_inq_question(callback.message, user.user_id, new_state["current_question"])
 
 

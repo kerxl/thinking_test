@@ -54,10 +54,15 @@ async def send_priorities_task(message: Message, user_id: int):
             keyboard.append([InlineKeyboardButton(text=f"{i+1}️⃣ {title}", callback_data="dummy")])
             keyboard.append(score_buttons)
 
+    # Добавляем кнопку завершения, если все баллы выставлены
     if len(used_scores) == PRIORITIES_LENGTH_SCORES_PER_QUESTION:
         keyboard.append(
             [InlineKeyboardButton(text=MESSAGES["button_finish_priority_task"], callback_data="complete_priorities")]
         )
+    
+    # Добавляем кнопку "Назад", если есть выбранные пункты
+    if len(used_scores) > 0:
+        keyboard.append([InlineKeyboardButton(text=MESSAGES["button_go_back"], callback_data="go_back")])
 
     await message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard))
 

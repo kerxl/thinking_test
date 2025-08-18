@@ -10,16 +10,25 @@ import logging
 import os
 
 # Полностью отключаем SQLAlchemy логи через переменную окружения
-os.environ['SQLALCHEMY_WARN_20'] = '0'
+os.environ["SQLALCHEMY_WARN_20"] = "0"
 
 # Настройка корневого логгера
-logging.basicConfig(level=logging.CRITICAL, format='%(message)s')
+logging.basicConfig(level=logging.CRITICAL, format="%(message)s")
 
 # Полное отключение всех библиотечных логов
 for logger_name in [
-    'sqlalchemy', 'sqlalchemy.engine', 'sqlalchemy.pool', 'sqlalchemy.dialects',
-    'sqlalchemy.orm', 'sqlalchemy.engine.Engine', 'httpx', 'aiogram', 
-    'asyncio', 'urllib3', 'aiofiles', 'asyncpg'
+    "sqlalchemy",
+    "sqlalchemy.engine",
+    "sqlalchemy.pool",
+    "sqlalchemy.dialects",
+    "sqlalchemy.orm",
+    "sqlalchemy.engine.Engine",
+    "httpx",
+    "aiogram",
+    "asyncio",
+    "urllib3",
+    "aiofiles",
+    "asyncpg",
 ]:
     logging.getLogger(logger_name).setLevel(logging.CRITICAL)
     logging.getLogger(logger_name).disabled = True
@@ -131,9 +140,6 @@ class SimulatedUser:
         """Начало взаимодействия с ботом - команда /start"""
         self.log("🚀 Отправляю команду /start")
 
-        # Имитируем отправку команды /start
-        await asyncio.sleep(0.5)  # Задержка как у реального пользователя
-
         # Создаем пользователя в БД
         user = await get_or_create_user(
             user_id=self.user_id, username=self.username, first_name=self.first_name, last_name=self.last_name
@@ -145,7 +151,6 @@ class SimulatedUser:
     async def click_start_button(self):
         """Нажатие на кнопку 'Начать тест'"""
         self.log("🔘 Нажимаю кнопку 'Начать тест'")
-        await asyncio.sleep(random.uniform(0.1, 0.5))
 
         # Имитируем callback "start_personal_data"
         self.log("📝 Бот запросил ввод имени и фамилии")
@@ -154,21 +159,30 @@ class SimulatedUser:
         """Ввод персональных данных"""
         full_name = f"{self.first_name} {self.last_name}"
         self.log(f"⌨️ Ввожу имя и фамилию: '{full_name}'")
-        await asyncio.sleep(random.uniform(0.2, 0.8))
 
         self.log(f"⌨️ Ввожу возраст: {self.age}")
-        await asyncio.sleep(random.uniform(0.1, 0.3))
 
         self.log("✅ Персональные данные введены, переходим к тестам")
 
     async def click_start_tasks_button(self):
         """Нажатие на кнопку начала тестов"""
         self.log("🔘 Нажимаю кнопку начала тестов")
-        await asyncio.sleep(random.uniform(0.1, 0.3))
 
         # Получаем пользователя из БД
         user = await get_or_create_user(
             user_id=self.user_id, username=self.username, first_name=self.first_name, last_name=self.last_name
+        )
+
+        # Сохраняем возраст пользователя (как это делается в реальном боте)
+        from src.database.operations import update_user
+        from datetime import datetime
+
+        await update_user(
+            user_id=self.user_id,
+            first_name=self.first_name,
+            last_name=self.last_name,
+            age=self.age,
+            test_start=datetime.now(),
         )
 
         # Начинаем тесты через TaskManager
@@ -191,9 +205,6 @@ class SimulatedUser:
 
         for i, category in enumerate(self.priorities_categories):
             score = scores[i]
-
-            # Имитируем размышления пользователя
-            await asyncio.sleep(random.uniform(0.3, 1.0))
 
             self.log(f"🔘 Выбираю для '{category}' балл: {score}")
 
@@ -233,12 +244,10 @@ class SimulatedUser:
         # Проверяем завершение теста
         if task_manager.is_priorities_task_completed(user.user_id):
             self.log("🎉 Тест приоритетов завершен!")
-            await asyncio.sleep(random.uniform(0.1, 0.5))
             self.log("🔘 Нажимаю кнопку 'Завершить тест 1'")
 
             # Переходим к следующему тесту
             await task_manager.move_to_next_task(user.user_id)
-            await asyncio.sleep(random.uniform(0.1, 0.3))
             self.log("🔘 Нажимаю кнопку 'Тест 2'")
             return True
         else:
@@ -258,18 +267,12 @@ class SimulatedUser:
         for question_num in range(total_questions):
             self.log(f"❓ Отвечаю на вопрос {question_num + 1}/{total_questions}")
 
-            # Имитируем чтение вопроса
-            await asyncio.sleep(random.uniform(0.5, 1.5))
-
             # Для каждого вопроса нужно выбрать 5 вариантов в порядке предпочтения
             options = ["1", "2", "3", "4", "5"]
             random.shuffle(options)  # Случайный порядок выбора
 
             for step, option in enumerate(options):
                 score = 5 - step  # 5, 4, 3, 2, 1
-
-                # Имитируем размышления над вариантом
-                await asyncio.sleep(random.uniform(0.2, 0.8))
 
                 self.log(f"🔘 Выбираю вариант {option} (балл: {score})")
 
@@ -286,14 +289,12 @@ class SimulatedUser:
 
                 # Переходим к следующему вопросу (кроме последнего)
                 if question_num < total_questions - 1:
-                    await asyncio.sleep(random.uniform(0.1, 0.3))
                     await task_manager.move_to_next_question(user.user_id)
                     self.log(f"➡️ Переход к вопросу {question_num + 2}")
             else:
                 self.log(f"❌ Вопрос {question_num + 1} не завершен")
 
         self.log("🎉 INQ тест завершен!")
-        await asyncio.sleep(random.uniform(0.1, 0.5))
 
         # Переходим к следующему тесту
         await task_manager.move_to_next_task(user.user_id)
@@ -312,8 +313,6 @@ class SimulatedUser:
         self.log(f"📋 Всего вопросов в EPI тесте: {total_questions}")
 
         for question_num in range(total_questions):
-            # Имитируем чтение вопроса
-            await asyncio.sleep(random.uniform(0.2, 0.8))
 
             # Случайный ответ "Да" или "Нет"
             answer = random.choice(["Да", "Нет"])
@@ -328,7 +327,6 @@ class SimulatedUser:
                 self.log(f"❌ Ошибка ответа: {message}")
 
         self.log("🎉 EPI тест завершен!")
-        await asyncio.sleep(random.uniform(0.1, 0.3))
 
         return True
 
@@ -342,8 +340,16 @@ class SimulatedUser:
         # Получаем результаты
         scores = await task_manager.complete_all_tasks(user)
 
-        # Отправляем отчет админу
-        await admin_reports.send_to_admin(user, scores)
+        # Получаем свежие данные пользователя из базы данных и отправляем отчет админу
+        from sqlalchemy import select
+        from src.database.models import AsyncSessionLocal, User
+        
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(select(User).where(User.user_id == user.user_id))
+            updated_user = result.scalar_one_or_none()
+            
+        if updated_user:
+            await admin_reports.send_to_admin(updated_user, scores)
 
         if scores:
             self.log("📊 Получены результаты тестирования:")
@@ -562,9 +568,6 @@ async def main():
     # Инициализируем TaskManager
     await initialize_task_manager()
     print("✅ TaskManager инициализирован")
-
-    # Небольшая задержка для инициализации
-    await asyncio.sleep(1)
 
     try:
         # Запускаем симуляцию

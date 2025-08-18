@@ -67,21 +67,22 @@ class AdminReports:
         temperament = self.get_temperament_type(user_data)
 
         report = f"Отправка № {self.counter:03d}\n\n"
-        report += f"User_id - {user_data.user_id}\n\n"
+        report += f"User_id - {user_data.user_id}\n"
         report += f"tg: {username_display}\n\n"
-        report += f"Имя фамилия: {full_name}\n\n"
-        report += f"Возраст = {user_data.age or 'Не указан'}\n"
-        report += f"Темперамент = {temperament}\n\n"
+        report += f"Имя фамилия: {full_name}\n"
+        report += f"Возраст = {user_data.age or 'Не указан'}\n\n"
+
+        # Получаем реальные данные EPI из scores
+        e_level = scores.get('E', 0)
+        n_level = scores.get('N', 0)
+        l_level = scores.get('L', 0)
+        actual_temperament = scores.get('temperament', temperament)
 
         report += f"🧠 InQ-тип = {inq_type}\n"
-
-        e_level = random.randint(0, 24)
-        n_level = random.randint(0, 24)
-        l_level = random.randint(0, 9)
-
-        report += f"E = {e_level} - уровень экстраверсии\n"
-        report += f"N = {n_level} - уровень нейротизма\n"
-        report += f"L = {l_level} - социальная одобряемость\n"
+        report += f"🎭 Темперамент = {actual_temperament}\n"
+        report += f"📊 E = {e_level} - уровень экстраверсии\n"
+        report += f"📊 N = {n_level} - уровень нейротизма\n"
+        report += f"📊 L = {l_level} - социальная одобряемость\n\n"
 
         report += "📊 Детальные результаты:\n"
 
