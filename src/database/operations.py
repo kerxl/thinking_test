@@ -15,6 +15,13 @@ async def get_db_session():
             await session.close()
 
 
+async def get_user_by_id(user_id: int) -> User:
+    """Получить пользователя по ID"""
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(User).where(User.user_id == user_id))
+        return result.scalar_one_or_none()
+
+
 async def get_or_create_user(user_id: int, username: str = None, first_name: str = None, last_name: str = None) -> User:
     async with AsyncSessionLocal() as session:
         result = await session.execute(select(User).where(User.user_id == user_id))

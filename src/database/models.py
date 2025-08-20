@@ -22,6 +22,11 @@ class User(Base):
     last_name = Column(String, nullable=True)
     age = Column(Integer, nullable=True)
 
+    # Senler integration fields
+    senler_token = Column(String, nullable=True)
+    senler_user_id = Column(String, nullable=True)
+    from_senler = Column(Boolean, default=False)
+
     test_start = Column(DateTime, nullable=True)
     test_end = Column(DateTime, nullable=True)
 

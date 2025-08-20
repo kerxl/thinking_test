@@ -4,6 +4,7 @@ from .globals import task_manager
 from config.const import MESSAGES
 from src.core.admin_reports import admin_reports
 from src.database.operations import get_or_create_user
+from src.integration.senler import senler_integration
 
 
 async def complete_all_tasks(message: Message, user):
@@ -35,13 +36,28 @@ async def complete_all_tasks(message: Message, user):
     result_text += f"<b>📊 E (экстраверсия):</b> {all_scores.get('E', 0)}\n"
     result_text += f"<b>📊 N (нейротизм):</b> {all_scores.get('N', 0)}\n"
     result_text += f"<b>📊 L (шкала лжи):</b> {all_scores.get('L', 0)}\n"
-
-    await message.edit_text(
-        result_text,
-        reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[[InlineKeyboardButton(text=MESSAGES["button_again"], callback_data="start_personal_data")]]
-        ),
-    )
+    
+    # Проверяем, пришел ли пользователь из Senler
+    if user.from_senler:
+        # Если пользователь из Senler, показываем результаты и возвращаем в Senler
+        result_text += "\n\n✨ <b>Спасибо за прохождение теста!</b>\n"
+        result_text += "<i>Сейчас мы вернем вас в Senler...</i>"
+        
+        await message.edit_text(result_text)
+        
+        # Возвращаем пользователя в Senler
+        await senler_integration.return_user_to_senler(
+            user.user_id, 
+            "Спасибо за прохождение теста! Ваши результаты сохранены."
+        )
+    else:
+        # Обычное завершение для пользователей не из Senler
+        await message.edit_text(
+            result_text,
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[[InlineKeyboardButton(text=MESSAGES["button_again"], callback_data="start_personal_data")]]
+            ),
+        )
 
     from sqlalchemy import select
     from src.database.models import AsyncSessionLocal, User

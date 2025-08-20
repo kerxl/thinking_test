@@ -17,10 +17,22 @@ The bot integrates with Senler marketing platform and stores comprehensive user 
 # Install dependencies
 pip install -r requirements.txt
 
-# Run the bot
+# Run the bot (standard mode)
 python src/bot/main.py
 
-# Database operations (if using Alembic)
+# Run only API server for Senler integration
+python src/run_api_only.py
+
+# Run bot with API server (Senler integration)
+python src/run_with_api.py
+
+# Using Makefile
+make run              # Standard bot
+make run-api         # API server only  
+make run-with-api    # Bot + API server
+make db-senler       # Apply Senler migration
+
+# Database operations
 alembic upgrade head
 ```
 
@@ -68,6 +80,28 @@ alembic upgrade head
 - EPI test includes temperament calculation based on E/N scores
 - Back button functionality only available for INQ test
 - All answers stored as JSON for flexibility and future analysis
+
+## Senler Integration
+
+Project now supports integration with Senler marketing platform:
+
+### Key Features
+- **Webhook API** (`/senler/webhook`) - receives initialization requests from Senler
+- **User Management** - tracks users from Senler with special flags and tokens  
+- **Automatic Return** - users are returned to Senler after test completion
+- **FastAPI Server** - runs alongside Telegram bot for webhook handling
+
+### Database Changes
+Added fields to `users` table:
+- `senler_token` - token for returning user to Senler
+- `senler_user_id` - Senler system user ID (optional)
+- `from_senler` - flag indicating user came from Senler
+
+### Usage
+- Run `make db-senler` to apply database migration
+- Use `make run-with-api` to start bot + API server
+- Use `make run-api` for API server only
+- See `SENLER_INTEGRATION.md` for detailed documentation
 
 ## AI Assistant Guide
 - Общайся со мной на русском языке

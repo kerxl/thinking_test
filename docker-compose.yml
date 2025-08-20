@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: mind_style
+      POSTGRES_USER: mindbot
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/add_senler_fields.sql:/docker-entrypoint-initdb.d/01-senler.sql
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mindbot -d mind_style"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  mindbot:
+    build: .
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://mindbot:${DB_PASSWORD}@postgres:5432/mind_style
+      - BOT_TOKEN=${BOT_TOKEN}
+      - DEBUG=False
+      - ADMIN_USER_ID=${ADMIN_USER_ID}
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - WEBHOOK_URL=${WEBHOOK_URL}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      - mindbot
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

@@ -71,6 +71,14 @@ run-debug: ## Запустить бота в режиме отладки
 	@echo "$(GREEN)Запуск бота (режим отладки)...$(NC)"
 	DEBUG=True $(PYTHON) -m src.bot.main
 
+run-api: ## Запустить только API сервер для Senler
+	@echo "$(GREEN)Запуск API сервера...$(NC)"
+	$(PYTHON) src/run_api_only.py
+
+run-with-api: ## Запустить бота вместе с API сервером
+	@echo "$(GREEN)Запуск бота + API сервера...$(NC)"
+	$(PYTHON) src/run_with_api.py
+
 clean: ## Очистить временные файлы
 	@echo "$(GREEN)Очистка временных файлов...$(NC)"
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
@@ -154,6 +162,10 @@ db-stats: ## Показать статистику базы данных
 db-connect: ## Подключиться к базе данных интерактивно
 	@echo "$(GREEN)Подключение к базе данных...$(NC)"
 	./database/db_manager.sh connect
+
+db-senler: ## Применить миграцию для Senler интеграции
+	@echo "$(GREEN)Применение миграции Senler...$(NC)"
+	psql "postgresql://postgres:postgres@localhost/mind_style" -f database/add_senler_fields.sql
 
 # Проверка существования виртуального окружения
 $(VENV)/bin/python:

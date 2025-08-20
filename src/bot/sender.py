@@ -38,7 +38,7 @@ async def send_priorities_task(message: Message, user_id: int):
 
     if current_step == 0:
         text += f"<b>Следующий балл: {next_score}</b>\n"
-        text += f"<i>Выберите категорию, которой дашь {next_score} баллов:</i>"
+        text += f"<i>Выберите категорию, которой дадите {next_score} баллов:</i>"
     else:
         last_category_title = None
         task_section = state["answers"].get("priorities", {})
@@ -51,7 +51,7 @@ async def send_priorities_task(message: Message, user_id: int):
             text += f"✅ Вы дали {PRIORITIES_SCORES_PER_QUESTION[current_step - 1]} баллов категории '{last_category_title}'.\n\n"
 
         text += f"<b>Следующий балл: {next_score}</b>\n"
-        text += f"<i>Выберите категорию, которой дашь {next_score} баллов:</i>"
+        text += f"<i>Выберите категорию, которой дадите {next_score} баллов:</i>"
 
     keyboard = []
     if remaining_categories:
