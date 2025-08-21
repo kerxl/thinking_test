@@ -67,15 +67,20 @@ class TestTaskManager:
         """Тест проверки завершения теста приоритетов"""
         # Неполный тест
         task_manager.active_tasks[mock_user.user_id] = {
-            "answers": {TaskSection.priorities.value: {"personal_wellbeing": 5, "material_career": 4}}
+            "answers": {
+                TaskSection.priorities.value: {
+                    "personal_wellbeing": 5,
+                    "material_career": 4,
+                }
+            }
         }
 
         assert not task_manager.is_priorities_task_completed(mock_user.user_id)
 
         # Полный тест
-        task_manager.active_tasks[mock_user.user_id]["answers"][TaskSection.priorities.value].update(
-            {"relationships": 3, "self_realization": 2}
-        )
+        task_manager.active_tasks[mock_user.user_id]["answers"][
+            TaskSection.priorities.value
+        ].update({"relationships": 3, "self_realization": 2})
 
         assert task_manager.is_priorities_task_completed(mock_user.user_id)
 
@@ -94,7 +99,9 @@ class TestTaskManager:
             "answers": {},
         }
 
-        success, message = await task_manager.process_priorities_answer(mock_user, "personal_wellbeing", 5)
+        success, message = await task_manager.process_priorities_answer(
+            mock_user, "personal_wellbeing", 5
+        )
 
         assert success is True
         answers = task_manager.active_tasks[mock_user.user_id]["answers"]
@@ -102,7 +109,9 @@ class TestTaskManager:
         assert task_manager.active_tasks[mock_user.user_id]["current_step"] == 1
 
     @pytest.mark.asyncio
-    async def test_process_priorities_answer_duplicate_score(self, task_manager, mock_user):
+    async def test_process_priorities_answer_duplicate_score(
+        self, task_manager, mock_user
+    ):
         """Тест обработки дублирующегося балла в тесте приоритетов"""
         # Инициализируем состояние с уже существующим баллом
         task_manager.active_tasks[mock_user.user_id] = {
@@ -131,7 +140,9 @@ class TestTaskManager:
         assert "5" in options
 
         # Некоторые опции уже использованы
-        task_manager.active_tasks[mock_user.user_id]["answers"]["inq"] = {"question_1": {"1": 5, "3": 4}}
+        task_manager.active_tasks[mock_user.user_id]["answers"]["inq"] = {
+            "question_1": {"1": 5, "3": 4}
+        }
 
         options = task_manager.get_inq_available_options(mock_user.user_id, 0)
         assert "1" not in options

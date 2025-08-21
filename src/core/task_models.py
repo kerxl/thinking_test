@@ -28,7 +28,9 @@ class PrioritiesTask(BaseTest):
 
     async def load_questions(self):
         try:
-            async with aiofiles.open("questions/first_task.json", "r", encoding="utf-8") as f:
+            async with aiofiles.open(
+                "questions/first_task.json", "r", encoding="utf-8"
+            ) as f:
                 content = await f.read()
                 self.question_data = json.loads(content)
                 self.loaded = True
@@ -112,7 +114,9 @@ class InqTask(BaseTest):
 
     async def load_questions(self):
         try:
-            async with aiofiles.open("questions/second_task.json", "r", encoding="utf-8") as f:
+            async with aiofiles.open(
+                "questions/second_task.json", "r", encoding="utf-8"
+            ) as f:
                 content = await f.read()
                 self.questions = json.loads(content)
                 self.loaded = True
@@ -198,7 +202,9 @@ class EpiTask(BaseTest):
 
     async def load_questions(self):
         try:
-            async with aiofiles.open("questions/third_task.json", "r", encoding="utf-8") as f:
+            async with aiofiles.open(
+                "questions/third_task.json", "r", encoding="utf-8"
+            ) as f:
                 content = await f.read()
                 self.questions = json.loads(content)
                 self.loaded = True
@@ -262,7 +268,8 @@ class EpiTask(BaseTest):
             if (
                 user_answer
                 and question.get("answer_for_point")
-                and str(user_answer).lower() == str(question["answer_for_point"]).lower()
+                and str(user_answer).lower()
+                == str(question["answer_for_point"]).lower()
             ):
                 scale = question["scale"]
                 if scale in scores:
@@ -270,7 +277,12 @@ class EpiTask(BaseTest):
 
         temperament = self._determine_temperament(scores["E"], scores["N"])
 
-        return {"E": scores["E"], "N": scores["N"], "L": scores["L"], "temperament": temperament}
+        return {
+            "E": scores["E"],
+            "N": scores["N"],
+            "L": scores["L"],
+            "temperament": temperament,
+        }
 
     def _determine_temperament(self, e_score: int, n_score: int) -> str:
         if e_score >= 2 and n_score >= 2:

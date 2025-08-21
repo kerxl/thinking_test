@@ -167,6 +167,26 @@ db-senler: ## Применить миграцию для Senler интеграц
 	@echo "$(GREEN)Применение миграции Senler...$(NC)"
 	psql "postgresql://postgres:postgres@localhost/mind_style" -f database/add_senler_fields.sql
 
+db-admin-links: ## Применить миграцию для админских ссылок Senler
+	@echo "$(GREEN)Применение миграции админских ссылок...$(NC)"
+	psql "postgresql://postgres:postgres@localhost/mind_style" -f database/add_admin_senler_link_fields.sql
+
+test-admin-links: ## Тестировать функциональность админских ссылок
+	@echo "$(GREEN)Тестирование админских ссылок...$(NC)"
+	$(PYTHON) test_admin_senler_link.py
+
+demo-admin-links: ## Демонстрация админских ссылок с быстрой отправкой (5 секунд)
+	@echo "$(GREEN)Демонстрация админских ссылок...$(NC)"
+	$(PYTHON) demo_simple_admin_link.py
+
+demo-preview-message: ## Предварительный просмотр сообщения для user_id 1524374551
+	@echo "$(GREEN)Предварительный просмотр сообщения...$(NC)"
+	$(PYTHON) demo_preview_message.py
+
+demo-real-message: ## Демонстрация с реальной отправкой сообщения пользователю (user_id: 1524374551)
+	@echo "$(GREEN)Демонстрация с реальным сообщением...$(NC)"
+	$(PYTHON) demo_real_message.py
+
 # Проверка существования виртуального окружения
 $(VENV)/bin/python:
 	@echo "$(RED)Виртуальное окружение не найдено!$(NC)"

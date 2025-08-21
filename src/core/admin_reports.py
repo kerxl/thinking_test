@@ -24,7 +24,9 @@ class AdminReports:
         self.temperaments = ["Сангвиник", "Холерик", "Флегматик", "Меланхолик"]
 
     def determine_inq_type(self, scores: Dict[str, int]) -> str:
-        numeric_scores = {k: v for k, v in scores.items() if isinstance(v, (int, float))}
+        numeric_scores = {
+            k: v for k, v in scores.items() if isinstance(v, (int, float))
+        }
         if len(numeric_scores) < 2:
             return "Неопределен"
 
@@ -59,9 +61,13 @@ class AdminReports:
     def format_admin_report(self, user_data: User, scores: Dict[str, int]) -> str:
         inq_type = self.determine_inq_type(scores)
 
-        username_display = f"@{user_data.username}" if user_data.username else "нет username"
+        username_display = (
+            f"@{user_data.username}" if user_data.username else "нет username"
+        )
 
-        full_name = f"{user_data.first_name or 'Не указано'} {user_data.last_name or ''}"
+        full_name = (
+            f"{user_data.first_name or 'Не указано'} {user_data.last_name or ''}"
+        )
         full_name = full_name.strip()
 
         temperament = self.get_temperament_type(user_data)
@@ -73,10 +79,10 @@ class AdminReports:
         report += f"Возраст = {user_data.age or 'Не указан'}\n\n"
 
         # Получаем реальные данные EPI из scores
-        e_level = scores.get('E', 0)
-        n_level = scores.get('N', 0)
-        l_level = scores.get('L', 0)
-        actual_temperament = scores.get('temperament', temperament)
+        e_level = scores.get("E", 0)
+        n_level = scores.get("N", 0)
+        l_level = scores.get("L", 0)
+        actual_temperament = scores.get("temperament", temperament)
 
         report += f"🧠 InQ-тип = {inq_type}\n"
         report += f"🎭 Темперамент = {actual_temperament}\n"
@@ -86,8 +92,12 @@ class AdminReports:
 
         report += "📊 Детальные результаты:\n"
 
-        numeric_scores = {k: v for k, v in scores.items() if isinstance(v, (int, float))}
-        text_scores = {k: v for k, v in scores.items() if not isinstance(v, (int, float))}
+        numeric_scores = {
+            k: v for k, v in scores.items() if isinstance(v, (int, float))
+        }
+        text_scores = {
+            k: v for k, v in scores.items() if not isinstance(v, (int, float))
+        }
 
         sorted_scores = sorted(numeric_scores.items(), key=lambda x: x[1], reverse=True)
 
@@ -121,37 +131,60 @@ class AdminReports:
 
                 url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
+                # Создаем inline кнопку для добавления ссылки Senler
+                inline_keyboard = {
+                    "inline_keyboard": [
+                        [
+                            {
+                                "text": "➕ Добавить ссылку Senler",
+                                "callback_data": f"add_senler_link_{user_data.user_id}",
+                            }
+                        ]
+                    ]
+                }
+
                 payload = {
                     "chat_id": ADMIN_USER_ID,
                     "text": report,
                     "parse_mode": "HTML",
                     "disable_web_page_preview": True,
+                    "reply_markup": inline_keyboard,
                 }
 
                 async with httpx.AsyncClient() as client:
                     response = await client.post(url, json=payload, timeout=30)
 
                     if response.status_code == 200:
-                        logger.info(f"Отчет отправлен администратору для пользователя {user_data.user_id}")
+                        logger.info(
+                            f"Отчет отправлен администратору для пользователя {user_data.user_id}"
+                        )
                         return True
                     elif response.status_code == 429:
                         # Rate limit exceeded
                         try:
                             response_data = response.json()
-                            retry_after = response_data.get("parameters", {}).get("retry_after", 60)
+                            retry_after = response_data.get("parameters", {}).get(
+                                "retry_after", 60
+                            )
                         except:
                             retry_after = 60
 
-                        logger.warning(f"Rate limit (попытка {attempt + 1}/{max_retries}). Жду {retry_after} секунд...")
+                        logger.warning(
+                            f"Rate limit (попытка {attempt + 1}/{max_retries}). Жду {retry_after} секунд..."
+                        )
 
                         if attempt < max_retries - 1:  # Не ждем на последней попытке
                             await asyncio.sleep(retry_after)
                             continue
                         else:
-                            logger.error(f"Превышен лимит попыток отправки отчета для пользователя {user_data.user_id}")
+                            logger.error(
+                                f"Превышен лимит попыток отправки отчета для пользователя {user_data.user_id}"
+                            )
                             return False
                     else:
-                        logger.error(f"Ошибка отправки отчета администратору: {response.status_code} - {response.text}")
+                        logger.error(
+                            f"Ошибка отправки отчета администратору: {response.status_code} - {response.text}"
+                        )
 
                         # Для других ошибок делаем экспоненциальную задержку
                         if attempt < max_retries - 1:
@@ -162,7 +195,9 @@ class AdminReports:
                         return False
 
             except Exception as e:
-                logger.error(f"Ошибка при отправке отчета администратору (попытка {attempt + 1}/{max_retries}): {e}")
+                logger.error(
+                    f"Ошибка при отправке отчета администратору (попытка {attempt + 1}/{max_retries}): {e}"
+                )
 
                 if attempt < max_retries - 1:
                     delay = base_delay * (2**attempt)

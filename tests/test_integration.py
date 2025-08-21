@@ -55,9 +55,24 @@ class TestIntegration:
 
         manager.tasks[TaskType.epi].loaded = True
         manager.tasks[TaskType.epi].questions = [
-            {"number": 1, "text": "EPI Question 1", "scale": "E", "answer_for_point": "да"},
-            {"number": 2, "text": "EPI Question 2", "scale": "N", "answer_for_point": "да"},
-            {"number": 3, "text": "EPI Question 3", "scale": "L", "answer_for_point": "нет"},
+            {
+                "number": 1,
+                "text": "EPI Question 1",
+                "scale": "E",
+                "answer_for_point": "да",
+            },
+            {
+                "number": 2,
+                "text": "EPI Question 2",
+                "scale": "N",
+                "answer_for_point": "да",
+            },
+            {
+                "number": 3,
+                "text": "EPI Question 3",
+                "scale": "L",
+                "answer_for_point": "нет",
+            },
         ]
 
         return manager
@@ -83,7 +98,10 @@ class TestIntegration:
             # 1. Начинаем тестирование
             success = await task_manager.start_tasks(mock_user)
             assert success is True
-            assert task_manager.get_current_task_type(mock_user.user_id) == TaskType.priorities.value
+            assert (
+                task_manager.get_current_task_type(mock_user.user_id)
+                == TaskType.priorities.value
+            )
 
             # 2. Проходим тест приоритетов
             priorities_answers = [
@@ -94,7 +112,9 @@ class TestIntegration:
             ]
 
             for category, score in priorities_answers:
-                success, _ = await task_manager.process_priorities_answer(mock_user, category, score)
+                success, _ = await task_manager.process_priorities_answer(
+                    mock_user, category, score
+                )
                 assert success is True
 
             # Проверяем завершение теста приоритетов
@@ -102,17 +122,24 @@ class TestIntegration:
 
             # Переходим к следующему тесту
             await task_manager.move_to_next_task(mock_user.user_id)
-            assert task_manager.get_current_task_type(mock_user.user_id) == TaskType.inq.value
+            assert (
+                task_manager.get_current_task_type(mock_user.user_id)
+                == TaskType.inq.value
+            )
 
             # 3. Проходим INQ тест (2 вопроса)
             for question_num in range(2):
                 # Имитируем выбор вариантов в порядке 5-4-3-2-1
                 for step, option in enumerate(["1", "2", "3", "4", "5"]):
-                    success, _ = await task_manager.process_inq_answer(mock_user, option)
+                    success, _ = await task_manager.process_inq_answer(
+                        mock_user, option
+                    )
                     assert success is True
 
                 # Проверяем завершение вопроса
-                assert task_manager.is_inq_question_completed(mock_user.user_id, question_num)
+                assert task_manager.is_inq_question_completed(
+                    mock_user.user_id, question_num
+                )
 
                 # Переходим к следующему вопросу (кроме последнего)
                 if question_num < 1:
@@ -120,7 +147,10 @@ class TestIntegration:
 
             # Переходим к EPI тесту
             await task_manager.move_to_next_task(mock_user.user_id)
-            assert task_manager.get_current_task_type(mock_user.user_id) == TaskType.epi.value
+            assert (
+                task_manager.get_current_task_type(mock_user.user_id)
+                == TaskType.epi.value
+            )
 
             # 4. Проходим EPI тест (3 вопроса)
             epi_answers = ["Да", "Да", "Нет"]
@@ -129,15 +159,19 @@ class TestIntegration:
                 assert success is True
 
             # 5. Переходим после EPI теста (имитируем завершение) - нужно значение > 3
-            await task_manager.move_to_next_task(mock_user.user_id)  # Теперь current_task_type = 4
-            
+            await task_manager.move_to_next_task(
+                mock_user.user_id
+            )  # Теперь current_task_type = 4
+
             # Проверяем что состояние правильно обновилось
             state = task_manager.get_task_state(mock_user.user_id)
-            assert state["current_task_type"] == 4  # После move_to_next_task из EPI (3) стало 4
-            
+            assert (
+                state["current_task_type"] == 4
+            )  # После move_to_next_task из EPI (3) стало 4
+
             # Проверяем что все тесты завершены (current_task_type > TaskType.epi.value (3))
             assert task_manager.is_all_tasks_completed(mock_user.user_id)
-            
+
             # Завершаем все тесты и получаем результаты
             scores = await task_manager.complete_all_tasks(mock_user)
 
@@ -164,7 +198,9 @@ class TestIntegration:
             assert len(state["history"]) == 2
 
             # Делаем откат
-            success, message, updated_state = await task_manager.go_back_question(mock_user)
+            success, message, updated_state = await task_manager.go_back_question(
+                mock_user
+            )
             assert success is True
 
             # Проверяем что состояние изменилось
@@ -181,8 +217,12 @@ class TestIntegration:
             await task_manager.start_tasks(mock_user)
 
             # Тест дублирующихся баллов в приоритетах
-            await task_manager.process_priorities_answer(mock_user, "personal_wellbeing", 5)
-            success, message = await task_manager.process_priorities_answer(mock_user, "material_career", 5)
+            await task_manager.process_priorities_answer(
+                mock_user, "personal_wellbeing", 5
+            )
+            success, message = await task_manager.process_priorities_answer(
+                mock_user, "material_career", 5
+            )
             assert success is False
             assert "уже использован" in message
 
@@ -198,7 +238,9 @@ class TestIntegration:
             await task_manager.move_to_next_task(mock_user.user_id)
 
             # Тест неверных ответов в EPI
-            success, message = await task_manager.process_epi_answer(mock_user, "Может быть")
+            success, message = await task_manager.process_epi_answer(
+                mock_user, "Может быть"
+            )
             assert success is False
 
     @pytest.mark.asyncio
@@ -222,7 +264,11 @@ class TestIntegration:
                     "question_1": {"1": 5, "2": 4, "3": 3, "4": 2, "5": 1},
                     "question_2": {"1": 3, "2": 5, "3": 1, "4": 4, "5": 2},
                 },
-                "epi": {"1": "Да", "2": "Да", "3": "Нет"},  # E: попадание  # N: попадание  # L: попадание
+                "epi": {
+                    "1": "Да",
+                    "2": "Да",
+                    "3": "Нет",
+                },  # E: попадание  # N: попадание  # L: попадание
             }
 
             # Получаем результаты
@@ -236,7 +282,7 @@ class TestIntegration:
             # question_2: {"1": 3, "2": 5, "3": 1, "4": 4, "5": 2} с mapping {"1": "Реалистический", "2": "Синтетический", "3": "Идеалистический", "4": "Прагматический", "5": "Аналитический"}
             # Итого: Синтетический: 5+5=10, Идеалистический: 4+1=5, Прагматический: 3+4=7, Аналитический: 2+2=4, Реалистический: 1+3=4
             expected_synthetic = 10  # 5 (из q1 опция "1") + 5 (из q2 опция "2")
-            expected_idealistic = 5   # 4 (из q1 опция "2") + 1 (из q2 опция "3")
+            expected_idealistic = 5  # 4 (из q1 опция "2") + 1 (из q2 опция "3")
             assert scores["Синтетический"] == expected_synthetic
             assert scores["Идеалистический"] == expected_idealistic
 

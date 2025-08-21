@@ -14,6 +14,13 @@ async def start_handler(message: Message):
         "🎁 В конце получите персональный анализ\n\n"
         "<i>Для начала нам нужно собрать немного информации о вас.</i>",
         reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[[InlineKeyboardButton(text=MESSAGES["button_start"], callback_data="start_personal_data")]]
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=MESSAGES["button_start"],
+                        callback_data="start_personal_data",
+                    )
+                ]
+            ]
         ),
     )

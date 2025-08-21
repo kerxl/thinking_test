@@ -6,6 +6,7 @@ from .globals import task_manager, dp
 from config.const import (
     MESSAGES,
     PersonalDataStates,
+    AdminStates,
     INQ_SCORES_PER_QUESTION,
     TaskEntity,
     TaskType,
@@ -28,7 +29,9 @@ async def collect_personal_data(callback: CallbackQuery, state: FSMContext):
 
 @dp.callback_query(F.data == "start_tasks")
 async def start_tasks(callback: CallbackQuery):
-    user = await get_or_create_user(user_id=callback.from_user.id, username=callback.from_user.username)
+    user = await get_or_create_user(
+        user_id=callback.from_user.id, username=callback.from_user.username
+    )
 
     success = await task_manager.start_tasks(user)
     if not success:
@@ -47,9 +50,13 @@ async def process_priorities_answer(callback: CallbackQuery):
     _, _, new_index_str = callback.data.split("_")
     new_index = int(new_index_str)
 
-    user = await get_or_create_user(user_id=callback.from_user.id, username=callback.from_user.username)
+    user = await get_or_create_user(
+        user_id=callback.from_user.id, username=callback.from_user.username
+    )
 
-    remaining_categories = task_manager.get_priorities_remaining_categories_data(user.user_id)
+    remaining_categories = task_manager.get_priorities_remaining_categories_data(
+        user.user_id
+    )
 
     if new_index >= len(remaining_categories):
         await callback.answer("❌ Неверный выбор категории", show_alert=True)
@@ -58,7 +65,9 @@ async def process_priorities_answer(callback: CallbackQuery):
     original_index = remaining_categories[new_index]["original_index"]
     category_title = remaining_categories[new_index]["category_data"]["title"]
 
-    success, message_text = await task_manager.process_priorities_step_answer(user, str(original_index))
+    success, message_text = await task_manager.process_priorities_step_answer(
+        user, str(original_index)
+    )
     if not success:
         await callback.answer(f"❌ {message_text}", show_alert=True)
         return
@@ -76,7 +85,12 @@ async def process_priorities_answer(callback: CallbackQuery):
             "🎉 <b>Тест 1 завершен!✅</b>\n\n" "Переходим к следующему тесту...",
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[
-                    [InlineKeyboardButton(text=MESSAGES["button_inq_task_start"], callback_data="start_inq_task")]
+                    [
+                        InlineKeyboardButton(
+                            text=MESSAGES["button_inq_task_start"],
+                            callback_data="start_inq_task",
+                        )
+                    ]
                 ]
             ),
         )
@@ -103,9 +117,13 @@ async def process_inq_answer(callback: CallbackQuery):
     question_num = int(parts[2])
     new_index = int(parts[3])
 
-    user = await get_or_create_user(user_id=callback.from_user.id, username=callback.from_user.username)
+    user = await get_or_create_user(
+        user_id=callback.from_user.id, username=callback.from_user.username
+    )
 
-    remaining_data = task_manager.get_inq_remaining_options_data(user.user_id, question_num)
+    remaining_data = task_manager.get_inq_remaining_options_data(
+        user.user_id, question_num
+    )
 
     if new_index >= len(remaining_data["options"]):
         await callback.answer("❌ Неверный выбор варианта", show_alert=True)
@@ -136,7 +154,12 @@ async def process_inq_answer(callback: CallbackQuery):
                 "🎉 <b>Тест 2 завершен!✅</b>\n\n" "Переходим к финальному тесту...",
                 reply_markup=InlineKeyboardMarkup(
                     inline_keyboard=[
-                        [InlineKeyboardButton(text=MESSAGES["button_epi_task_start"], callback_data="start_epi_task")]
+                        [
+                            InlineKeyboardButton(
+                                text=MESSAGES["button_epi_task_start"],
+                                callback_data="start_epi_task",
+                            )
+                        ]
                     ]
                 ),
             )
@@ -149,7 +172,9 @@ async def go_back(callback: CallbackQuery):
     """
     Обработка кнопки "Назад"
     """
-    user = await get_or_create_user(user_id=callback.from_user.id, username=callback.from_user.username)
+    user = await get_or_create_user(
+        user_id=callback.from_user.id, username=callback.from_user.username
+    )
 
     success, message_text, new_state = await task_manager.go_back_question(user)
     if not success:
@@ -161,7 +186,9 @@ async def go_back(callback: CallbackQuery):
     if new_state["current_task_type"] == TaskType.priorities.value:
         await send_priorities_task(callback.message, user.user_id)
     elif new_state["current_task_type"] == TaskType.inq.value:
-        await send_inq_question(callback.message, user.user_id, new_state["current_question"])
+        await send_inq_question(
+            callback.message, user.user_id, new_state["current_question"]
+        )
 
 
 @dp.callback_query(F.data == "start_epi_task")
@@ -181,7 +208,9 @@ async def process_epi_answer(callback: CallbackQuery):
     _, question_num_str, answer = callback.data.split("_")
     question_num = int(question_num_str)
 
-    user = await get_or_create_user(user_id=callback.from_user.id, username=callback.from_user.username)
+    user = await get_or_create_user(
+        user_id=callback.from_user.id, username=callback.from_user.username
+    )
 
     success, message_text = await task_manager.process_epi_answer(user, answer)
     if not success:
@@ -194,3 +223,35 @@ async def process_epi_answer(callback: CallbackQuery):
         await send_epi_question(callback.message, user.user_id, question_num + 1)
     else:
         await complete_all_tasks(callback.message, user)
+
+
+@dp.callback_query(F.data.startswith("add_senler_link_"))
+async def add_senler_link_handler(callback: CallbackQuery, state: FSMContext):
+    """
+    Обработка нажатия кнопки для добавления ссылки Senler администратором
+    """
+    # Проверяем, что это админ
+    from config.settings import ADMIN_USER_ID
+
+    if callback.from_user.id != ADMIN_USER_ID:
+        await callback.answer(
+            "❌ У вас нет прав для выполнения этого действия", show_alert=True
+        )
+        return
+
+    # Извлекаем user_id из callback_data
+    user_id = int(callback.data.split("_")[-1])
+
+    # Сохраняем user_id в состояние для дальнейшего использования
+    await state.update_data(target_user_id=user_id)
+
+    # Устанавливаем состояние ожидания ссылки
+    await state.set_state(AdminStates.waiting_for_senler_link)
+
+    # Просим админа ввести ссылку
+    await callback.message.reply(
+        f"📝 Введите ссылку на Senler для пользователя {user_id}:\n\n"
+        "Ссылка будет отправлена пользователю через 24 часа."
+    )
+
+    await callback.answer("✅ Ожидаю ввод ссылки")

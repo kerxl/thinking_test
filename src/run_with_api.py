@@ -1,6 +1,7 @@
 """
 Комбинированный запуск Telegram бота и FastAPI сервера для Senler интеграции
 """
+
 import asyncio
 import json
 import logging
@@ -17,10 +18,11 @@ from config.settings import DEBUG
 from src.database.operations import init_db
 from src.bot.globals import bot, dp, task_manager
 from src.api.server import app
+from src.core.scheduler import link_scheduler
 
 logging.basicConfig(
-    level=logging.INFO if DEBUG else logging.WARNING, 
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO if DEBUG else logging.WARNING,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -33,8 +35,15 @@ async def run_bot():
         await TaskEntity.inq.value.load_questions()
         await TaskEntity.epi.value.load_questions()
 
+        # Запускаем планировщик ссылок
+        await link_scheduler.start()
+
         logger.info("🤖 Telegram бот запущен")
-        await dp.start_polling(bot)
+        try:
+            await dp.start_polling(bot)
+        finally:
+            # Останавливаем планировщик при завершении
+            await link_scheduler.stop()
     except Exception as e:
         logger.error(f"❌ Ошибка запуска Telegram бота: {e}")
 
@@ -44,10 +53,7 @@ def run_api_server():
     try:
         logger.info("🌐 Запуск FastAPI сервера...")
         uvicorn.run(
-            app,
-            host="0.0.0.0",
-            port=8000,
-            log_level="info" if DEBUG else "warning"
+            app, host="0.0.0.0", port=8000, log_level="info" if DEBUG else "warning"
         )
     except Exception as e:
         logger.error(f"❌ Ошибка запуска API сервера: {e}")
@@ -58,13 +64,13 @@ async def main():
     # Загружаем сообщения из конфигурации
     with open("config/constants.json", "r", encoding="utf-8") as json_file:
         MESSAGES.update(json.load(json_file))
-    
+
     logger.info("🚀 Запуск Mind Style Bot с Senler интеграцией")
-    
+
     # Запускаем API сервер в отдельном процессе
     api_process = Process(target=run_api_server)
     api_process.start()
-    
+
     try:
         # Запускаем Telegram бота в основном процессе
         await run_bot()

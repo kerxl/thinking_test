@@ -74,7 +74,9 @@ class TaskManager:
             return False
         return state["current_task_type"] > TaskType.epi.value
 
-    async def process_priorities_answer(self, user: "User", category_id: str, score: int) -> Tuple[bool, str]:
+    async def process_priorities_answer(
+        self, user: "User", category_id: str, score: int
+    ) -> Tuple[bool, str]:
         try:
             task_state = self.get_task_state(user.user_id)
             if not task_state:
@@ -86,7 +88,9 @@ class TaskManager:
             if TaskSection.priorities.value not in task_state["answers"]:
                 task_state["answers"][TaskSection.priorities.value] = {}
 
-            used_scores = set(task_state["answers"][TaskSection.priorities.value].values())
+            used_scores = set(
+                task_state["answers"][TaskSection.priorities.value].values()
+            )
             if score in used_scores:
                 return False, f"Балл {score} уже использован"
 
@@ -94,11 +98,17 @@ class TaskManager:
             task_state["current_step"] += 1
 
             task_state["history"].append(
-                {"task": TaskType.priorities.value, "category_id": category_id, "score": score}
+                {
+                    "task": TaskType.priorities.value,
+                    "category_id": category_id,
+                    "score": score,
+                }
             )
 
             await update_user(
-                user_id=user.user_id, current_step=task_state["current_step"], answers_json=task_state["answers"]
+                user_id=user.user_id,
+                current_step=task_state["current_step"],
+                answers_json=task_state["answers"],
             )
 
             logger.info(
@@ -110,7 +120,9 @@ class TaskManager:
             logger.error(f"Ошибка при обработке ответа теста приоритетов: {e}")
             return False, MESSAGES["answer_process_error"]
 
-    async def process_priorities_step_answer(self, user: "User", category_num: str) -> Tuple[bool, str]:
+    async def process_priorities_step_answer(
+        self, user: "User", category_num: str
+    ) -> Tuple[bool, str]:
         try:
             task_state = self.get_task_state(user.user_id)
             if not task_state:
@@ -130,14 +142,14 @@ class TaskManager:
             question = TaskEntity.priorities.value.get_question()
             if not question or "categories" not in question:
                 return False, "Ошибка загрузки вопроса"
-            
+
             category_num_int = int(category_num)
             if not (1 <= category_num_int <= len(question["categories"])):
                 return False, f"Неверный номер категории: {category_num}"
-            
+
             category_data = question["categories"][category_num_int - 1]
             category_title = category_data["title"]
-            
+
             # Проверяем что эта категория еще не выбрана
             if category_title in task_state["answers"][TaskSection.priorities.value]:
                 return False, f"Категория '{category_title}' уже выбрана"
@@ -147,7 +159,11 @@ class TaskManager:
             task_state["answers"][TaskSection.priorities.value][category_title] = score
 
             task_state["history"].append(
-                {"task": TaskType.priorities.value, "category_num": category_num, "score": score}
+                {
+                    "task": TaskType.priorities.value,
+                    "category_num": category_num,
+                    "score": score,
+                }
             )
 
             task_state["current_step"] = step + 1
@@ -164,7 +180,9 @@ class TaskManager:
             return True, MESSAGES["answer_saved"]
 
         except Exception as e:
-            logger.error(f"Ошибка при обработке ответа теста приоритетов (новая логика): {e}")
+            logger.error(
+                f"Ошибка при обработке ответа теста приоритетов (новая логика): {e}"
+            )
             return False, MESSAGES["answer_process_error"]
 
     async def process_inq_answer(self, user: "User", option: str) -> Tuple[bool, str]:
@@ -201,7 +219,13 @@ class TaskManager:
             task_state["answers"][TaskSection.inq.value][question_key][option] = score
 
             task_state["history"].append(
-                {"task": TaskType.inq.value, "question": question_num, "step": step, "option": option, "score": score}
+                {
+                    "task": TaskType.inq.value,
+                    "question": question_num,
+                    "step": step,
+                    "option": option,
+                    "score": score,
+                }
             )
 
             task_state["current_step"] = step + 1
@@ -250,7 +274,9 @@ class TaskManager:
                 answers_json=task_state["answers"],
             )
 
-            logger.info(f"Ответ в EPI тесте: пользователь {user.user_id}, вопрос {question_num + 1}, ответ {answer}")
+            logger.info(
+                f"Ответ в EPI тесте: пользователь {user.user_id}, вопрос {question_num + 1}, ответ {answer}"
+            )
             return True, MESSAGES["answer_saved"]
 
         except Exception as e:
@@ -261,7 +287,10 @@ class TaskManager:
         state = self.get_task_state(user_id)
         if not state or TaskSection.priorities.value not in state["answers"]:
             return False
-        return len(state["answers"][TaskSection.priorities.value]) == TaskAnswersLimit.priorities.value
+        return (
+            len(state["answers"][TaskSection.priorities.value])
+            == TaskAnswersLimit.priorities.value
+        )
 
     def is_inq_question_completed(self, user_id: int, question_num: int) -> bool:
         state = self.get_task_state(user_id)
@@ -292,7 +321,7 @@ class TaskManager:
 
         test_section = state["answers"].get("priorities", {})
         used_category_titles = set(test_section.keys())
-        
+
         # Получаем вопрос для сопоставления названий с номерами
         question = TaskEntity.priorities.value.get_question()
         if not question or "categories" not in question:
@@ -303,7 +332,7 @@ class TaskManager:
         for i, category in enumerate(question["categories"], 1):
             if category["title"] not in used_category_titles:
                 available.append(str(i))
-        
+
         return available
 
     def get_priorities_remaining_categories_data(self, user_id: int) -> List[dict]:
@@ -348,7 +377,9 @@ class TaskManager:
                 option_num = stripped[0]
                 option_text = stripped.split("️⃣", 1)[1].strip()
                 if option_num not in used_options:
-                    options_data.append({"original_option": option_num, "text": option_text})
+                    options_data.append(
+                        {"original_option": option_num, "text": option_text}
+                    )
             elif not in_options:
                 base_text_lines.append(line)
 
@@ -364,7 +395,10 @@ class TaskManager:
             state["current_step"] = 0
 
             await update_user(
-                user_id=user_id, current_task_type=state["current_task_type"], current_question=0, current_step=0
+                user_id=user_id,
+                current_task_type=state["current_task_type"],
+                current_question=0,
+                current_step=0,
             )
 
     async def move_to_next_question(self, user_id: int):
@@ -373,7 +407,11 @@ class TaskManager:
             state["current_question"] += 1
             state["current_step"] = 0
 
-            await update_user(user_id=user_id, current_question=state["current_question"], current_step=0)
+            await update_user(
+                user_id=user_id,
+                current_question=state["current_question"],
+                current_step=0,
+            )
 
     async def complete_all_tasks(self, user: "User") -> Dict[str, Any]:
         try:
@@ -383,9 +421,23 @@ class TaskManager:
 
             all_scores = {}
 
-            priorities_scores = TaskEntity.priorities.value.calculate_scores(task_state["answers"])
+            priorities_scores = TaskEntity.priorities.value.calculate_scores(
+                task_state["answers"]
+            )
             inq_scores = TaskEntity.inq.value.calculate_scores(task_state["answers"])
             epi_scores = TaskEntity.epi.value.calculate_scores(task_state["answers"])
+
+            # Устанавливаем время отправки персональной ссылки через 24 часа для пользователей не из Senler
+            admin_link_send_time = None
+            if not user.from_senler:
+                from datetime import datetime, timedelta
+                from config.settings import DEBUG
+
+                # В режиме отладки - отправка через 5 секунд, иначе через 24 часа
+                if DEBUG:
+                    admin_link_send_time = datetime.now() + timedelta(seconds=5)
+                else:
+                    admin_link_send_time = datetime.now() + timedelta(hours=24)
 
             await update_user(
                 user_id=user.user_id,
@@ -394,6 +446,7 @@ class TaskManager:
                 inq_scores_json=inq_scores,
                 epi_scores_json=epi_scores,
                 temperament=epi_scores.get("temperament"),
+                admin_link_send_time=admin_link_send_time,
             )
 
             if user.user_id in self.active_tasks:
@@ -424,25 +477,35 @@ class TaskManager:
                 # Обработка отката для теста приоритетов
                 if "category_num" in last_action:
                     category_num = last_action["category_num"]
-                    
+
                     # Получаем название категории по номеру
                     question = TaskEntity.priorities.value.get_question()
                     if question and "categories" in question:
                         try:
                             category_num_int = int(category_num)
                             if 1 <= category_num_int <= len(question["categories"]):
-                                category_title = question["categories"][category_num_int - 1]["title"]
-                                
+                                category_title = question["categories"][
+                                    category_num_int - 1
+                                ]["title"]
+
                                 # Удаляем ответ по названию категории
                                 if (
-                                    TaskSection.priorities.value in task_state["answers"]
-                                    and category_title in task_state["answers"][TaskSection.priorities.value]
+                                    TaskSection.priorities.value
+                                    in task_state["answers"]
+                                    and category_title
+                                    in task_state["answers"][
+                                        TaskSection.priorities.value
+                                    ]
                                 ):
-                                    del task_state["answers"][TaskSection.priorities.value][category_title]
+                                    del task_state["answers"][
+                                        TaskSection.priorities.value
+                                    ][category_title]
                         except (ValueError, IndexError):
                             pass
 
-                    current_answers = task_state["answers"].get(TaskSection.priorities.value, {})
+                    current_answers = task_state["answers"].get(
+                        TaskSection.priorities.value, {}
+                    )
                     task_state["current_step"] = len(current_answers)
                 else:
                     # Старая логика отката для совместимости
@@ -450,11 +513,16 @@ class TaskManager:
 
                     if (
                         TaskSection.priorities.value in task_state["answers"]
-                        and category_id in task_state["answers"][TaskSection.priorities.value]
+                        and category_id
+                        in task_state["answers"][TaskSection.priorities.value]
                     ):
-                        del task_state["answers"][TaskSection.priorities.value][category_id]
+                        del task_state["answers"][TaskSection.priorities.value][
+                            category_id
+                        ]
 
-                    current_answers = task_state["answers"].get(TaskSection.priorities.value, {})
+                    current_answers = task_state["answers"].get(
+                        TaskSection.priorities.value, {}
+                    )
                     task_state["current_step"] = len(current_answers)
 
                 await update_user(
@@ -472,15 +540,20 @@ class TaskManager:
                 if (
                     TaskSection.inq.value in task_state["answers"]
                     and question_key in task_state["answers"][TaskSection.inq.value]
-                    and option in task_state["answers"][TaskSection.inq.value][question_key]
+                    and option
+                    in task_state["answers"][TaskSection.inq.value][question_key]
                 ):
 
-                    del task_state["answers"][TaskSection.inq.value][question_key][option]
+                    del task_state["answers"][TaskSection.inq.value][question_key][
+                        option
+                    ]
 
                     if not task_state["answers"][TaskSection.inq.value][question_key]:
                         del task_state["answers"][TaskSection.inq.value][question_key]
 
-                new_step = len(task_state["answers"][TaskSection.inq.value].get(question_key, {}))
+                new_step = len(
+                    task_state["answers"][TaskSection.inq.value].get(question_key, {})
+                )
                 task_state["current_step"] = new_step
                 task_state["current_question"] = question_num
 

@@ -22,13 +22,20 @@ async def get_user_by_id(user_id: int) -> User:
         return result.scalar_one_or_none()
 
 
-async def get_or_create_user(user_id: int, username: str = None, first_name: str = None, last_name: str = None) -> User:
+async def get_or_create_user(
+    user_id: int, username: str = None, first_name: str = None, last_name: str = None
+) -> User:
     async with AsyncSessionLocal() as session:
         result = await session.execute(select(User).where(User.user_id == user_id))
         user = result.scalar_one_or_none()
 
         if not user:
-            user = User(user_id=user_id, username=username, first_name=first_name, last_name=last_name)
+            user = User(
+                user_id=user_id,
+                username=username,
+                first_name=first_name,
+                last_name=last_name,
+            )
             session.add(user)
             await session.commit()
             await session.refresh(user)

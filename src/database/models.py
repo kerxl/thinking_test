@@ -9,7 +9,9 @@ Base = declarative_base()
 
 engine = create_async_engine(DATABASE_URL, echo=True)
 
-AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+AsyncSessionLocal = async_sessionmaker(
+    engine, class_=AsyncSession, expire_on_commit=False
+)
 
 
 class User(Base):
@@ -26,6 +28,10 @@ class User(Base):
     senler_token = Column(String, nullable=True)
     senler_user_id = Column(String, nullable=True)
     from_senler = Column(Boolean, default=False)
+    admin_senler_link = Column(String, nullable=True)  # Ссылка на Senler от админа
+    admin_link_send_time = Column(
+        DateTime, nullable=True
+    )  # Время когда нужно отправить ссылку
 
     test_start = Column(DateTime, nullable=True)
     test_end = Column(DateTime, nullable=True)

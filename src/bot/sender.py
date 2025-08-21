@@ -21,10 +21,14 @@ async def send_priorities_task(message: Message, user_id: int):
     if not state:
         return
 
-    remaining_categories = task_manager.get_priorities_remaining_categories_data(user_id)
+    remaining_categories = task_manager.get_priorities_remaining_categories_data(
+        user_id
+    )
     current_step = state["current_step"]
     next_score = (
-        PRIORITIES_SCORES_PER_QUESTION[current_step] if current_step < PRIORITIES_LENGTH_SCORES_PER_QUESTION else 1
+        PRIORITIES_SCORES_PER_QUESTION[current_step]
+        if current_step < PRIORITIES_LENGTH_SCORES_PER_QUESTION
+        else 1
     )
 
     text = f"<b>✅Тест 1 из 3: Расстановка приоритетов</b>\n\n"
@@ -63,9 +67,17 @@ async def send_priorities_task(message: Message, user_id: int):
         )
 
     if state and state["history"]:
-        keyboard.append([InlineKeyboardButton(text=MESSAGES["button_go_back"], callback_data="go_back")])
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text=MESSAGES["button_go_back"], callback_data="go_back"
+                )
+            ]
+        )
 
-    await message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard))
+    await message.edit_text(
+        text, reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard)
+    )
 
 
 async def send_inq_question(message: Message, user_id: int, question_num: int):
@@ -80,7 +92,11 @@ async def send_inq_question(message: Message, user_id: int, question_num: int):
 
     remaining_data = task_manager.get_inq_remaining_options_data(user_id, question_num)
     current_step = state["current_step"]
-    next_score = INQ_SCORES_PER_QUESTION[current_step] if current_step < INQ_LENGTH_SCORES_PER_QUESTION else 1
+    next_score = (
+        INQ_SCORES_PER_QUESTION[current_step]
+        if current_step < INQ_LENGTH_SCORES_PER_QUESTION
+        else 1
+    )
 
     text = f"<b>✅Тест 2 из 3: Стили мышления</b>\n\n"
     text += f"📝 {question_num + 1} / {TaskEntity.inq.value.get_total_questions()}\n\n"
@@ -107,9 +123,7 @@ async def send_inq_question(message: Message, user_id: int, question_num: int):
                     break
 
         if last_option_text:
-            text += (
-                f"✅ Вы дали {INQ_SCORES_PER_QUESTION[current_step - 1]} баллов утверждению:\n'{last_option_text}'\n\n"
-            )
+            text += f"✅ Вы дали {INQ_SCORES_PER_QUESTION[current_step - 1]} баллов утверждению:\n'{last_option_text}'\n\n"
 
         text += f"<b>Следующий балл: {next_score}</b>\n"
         text += f"<i>Выберите утверждение, которому дашь {next_score} баллов:</i>"
@@ -118,15 +132,25 @@ async def send_inq_question(message: Message, user_id: int, question_num: int):
     if remaining_data["options"]:
         keyboard.append(
             [
-                InlineKeyboardButton(text=f"{i}️⃣", callback_data=f"inq_new_{question_num}_{i-1}")
+                InlineKeyboardButton(
+                    text=f"{i}️⃣", callback_data=f"inq_new_{question_num}_{i-1}"
+                )
                 for i in range(1, len(remaining_data["options"]) + 1)
             ]
         )
 
     if state and state["history"]:
-        keyboard.append([InlineKeyboardButton(text=MESSAGES["button_go_back"], callback_data="go_back")])
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text=MESSAGES["button_go_back"], callback_data="go_back"
+                )
+            ]
+        )
 
-    await message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard))
+    await message.edit_text(
+        text, reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard)
+    )
 
 
 async def send_epi_question(message: Message, user_id: int, question_num: int):
@@ -143,9 +167,15 @@ async def send_epi_question(message: Message, user_id: int, question_num: int):
 
     keyboard = [
         [
-            InlineKeyboardButton(text=MESSAGES["button_epi_yes"], callback_data=f"epi_{question_num}_Да"),
-            InlineKeyboardButton(text=MESSAGES["button_epi_no"], callback_data=f"epi_{question_num}_Нет"),
+            InlineKeyboardButton(
+                text=MESSAGES["button_epi_yes"], callback_data=f"epi_{question_num}_Да"
+            ),
+            InlineKeyboardButton(
+                text=MESSAGES["button_epi_no"], callback_data=f"epi_{question_num}_Нет"
+            ),
         ]
     ]
 
-    await message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard))
+    await message.edit_text(
+        text, reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard)
+    )

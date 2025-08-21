@@ -21,7 +21,13 @@ class TestPrioritiesTask:
         mock_data = {
             "question": {
                 "text": "Test question",
-                "categories": [{"id": "test_cat", "title": "Test Category", "description": "Test desc"}],
+                "categories": [
+                    {
+                        "id": "test_cat",
+                        "title": "Test Category",
+                        "description": "Test desc",
+                    }
+                ],
             }
         }
 
@@ -44,7 +50,12 @@ class TestPrioritiesTask:
     def test_calculate_scores(self, priorities_task):
         """Тест подсчета баллов приоритетов"""
         test_answers = {
-            "priorities": {"personal_wellbeing": 5, "material_career": 4, "relationships": 3, "self_realization": 2}
+            "priorities": {
+                "personal_wellbeing": 5,
+                "material_career": 4,
+                "relationships": 3,
+                "self_realization": 2,
+            }
         }
 
         scores = priorities_task.calculate_scores(test_answers)
@@ -90,7 +101,10 @@ class TestInqTask:
 
     def test_get_question(self, inq_task):
         """Тест получения конкретного вопроса"""
-        test_questions = [{"text": "Question 1", "mapping": {}}, {"text": "Question 2", "mapping": {}}]
+        test_questions = [
+            {"text": "Question 1", "mapping": {}},
+            {"text": "Question 2", "mapping": {}},
+        ]
 
         inq_task.questions = test_questions
         inq_task.loaded = True
@@ -103,11 +117,28 @@ class TestInqTask:
         """Тест подсчета баллов INQ"""
         # Настраиваем тестовые вопросы
         inq_task.questions = [
-            {"mapping": {"1": "Синтетический", "2": "Идеалистический", "3": "Прагматический"}},
-            {"mapping": {"1": "Аналитический", "2": "Реалистический", "3": "Синтетический"}},
+            {
+                "mapping": {
+                    "1": "Синтетический",
+                    "2": "Идеалистический",
+                    "3": "Прагматический",
+                }
+            },
+            {
+                "mapping": {
+                    "1": "Аналитический",
+                    "2": "Реалистический",
+                    "3": "Синтетический",
+                }
+            },
         ]
 
-        test_answers = {"inq": {"question_1": {"1": 5, "2": 4, "3": 3}, "question_2": {"1": 5, "2": 4, "3": 3}}}
+        test_answers = {
+            "inq": {
+                "question_1": {"1": 5, "2": 4, "3": 3},
+                "question_2": {"1": 5, "2": 4, "3": 3},
+            }
+        }
 
         scores = inq_task.calculate_scores(test_answers)
 
@@ -128,8 +159,18 @@ class TestEpiTask:
     def test_load_questions_success(self, epi_task):
         """Тест успешной загрузки EPI вопросов"""
         mock_data = [
-            {"number": 1, "text": "Test question 1", "scale": "E", "answer_for_point": "да"},
-            {"number": 2, "text": "Test question 2", "scale": "N", "answer_for_point": "нет"},
+            {
+                "number": 1,
+                "text": "Test question 1",
+                "scale": "E",
+                "answer_for_point": "да",
+            },
+            {
+                "number": 2,
+                "text": "Test question 2",
+                "scale": "N",
+                "answer_for_point": "нет",
+            },
         ]
 
         # Устанавливаем данные напрямую для тестирования
@@ -190,7 +231,9 @@ class TestEpiTask:
             {"number": 5, "scale": "N", "answer_for_point": "да"},
         ]
 
-        test_answers = {"epi": {"1": "Да", "2": "Да", "3": "Да", "4": "Да", "5": "Да"}}  # E  # E  # N  # N  # N
+        test_answers = {
+            "epi": {"1": "Да", "2": "Да", "3": "Да", "4": "Да", "5": "Да"}
+        }  # E  # E  # N  # N  # N
 
         scores = epi_task.calculate_scores(test_answers)
 

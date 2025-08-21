@@ -29,6 +29,10 @@ class PersonalDataStates(StatesGroup):
     waiting_for_age = State()
 
 
+class AdminStates(StatesGroup):
+    waiting_for_senler_link = State()
+
+
 class TaskEntity(Enum):
     priorities = PrioritiesTask()
     inq = InqTask()

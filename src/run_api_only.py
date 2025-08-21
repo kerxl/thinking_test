@@ -1,6 +1,7 @@
 """
 Запуск только FastAPI сервера для Senler интеграции
 """
+
 import uvicorn
 import sys
 import os
@@ -18,12 +19,7 @@ if __name__ == "__main__":
             host="0.0.0.0",
             port=8000,
             log_level="info",
-            reload=True
+            reload=True,
         )
     else:
-        uvicorn.run(
-            app,
-            host="0.0.0.0",
-            port=8000,
-            log_level="warning"
-        )
+        uvicorn.run(app, host="0.0.0.0", port=8000, log_level="warning")

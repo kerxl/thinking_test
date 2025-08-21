@@ -13,9 +13,9 @@ class TestDatabaseOperationsSimple:
             username="test_user",
             first_name="John",
             last_name="Doe",
-            age=25
+            age=25,
         )
-        
+
         assert user.user_id == 12345
         assert user.username == "test_user"
         assert user.first_name == "John"
@@ -87,15 +87,22 @@ class TestDatabaseOperationsSimple:
         """Тест операций базы данных с моками"""
         from unittest.mock import AsyncMock
         from src.database.operations import get_or_create_user, update_user
-        
+
         # Заменяем функции на моки
         original_get_or_create = get_or_create_user
         original_update = update_user
-        
+
         # Мокируем функции напрямую
-        async def mock_get_or_create_user(user_id, username=None, first_name=None, last_name=None):
-            return User(user_id=user_id, username=username, first_name=first_name, last_name=last_name)
-        
+        async def mock_get_or_create_user(
+            user_id, username=None, first_name=None, last_name=None
+        ):
+            return User(
+                user_id=user_id,
+                username=username,
+                first_name=first_name,
+                last_name=last_name,
+            )
+
         async def mock_update_user(user_id, **kwargs):
             if user_id == 99999:
                 return None
@@ -104,17 +111,17 @@ class TestDatabaseOperationsSimple:
                 if hasattr(user, key):
                     setattr(user, key, value)
             return user
-        
+
         # Тест get_or_create_user
         user = await mock_get_or_create_user(12345, "test_user", "John", "Doe")
         assert user.user_id == 12345
         assert user.username == "test_user"
-        
+
         # Тест update_user существующего пользователя
         updated_user = await mock_update_user(12345, first_name="Updated John")
         assert updated_user is not None
         assert updated_user.first_name == "Updated John"
-        
+
         # Тест update_user несуществующего пользователя
         non_existent = await mock_update_user(99999, first_name="Non-existent")
         assert non_existent is None
