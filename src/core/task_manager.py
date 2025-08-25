@@ -24,6 +24,8 @@ logger = logging.getLogger(__name__)
 class TaskManager:
     def __init__(self):
         self.active_tasks = {}
+        self.pending_saves = {}  # Пользователи с несохраненными изменениями в памяти
+        self.cached_users = {}  # Кэш пользователей для избежания повторных запросов к БД
         self.tasks = {
             TaskType.priorities: TaskEntity.priorities.value,
             TaskType.inq: TaskEntity.inq.value,
@@ -62,7 +64,42 @@ class TaskManager:
     def clear_task_state(self, user_id: int):
         if user_id in self.active_tasks:
             del self.active_tasks[user_id]
-            logger.info(f"Состояние тестов очищено для пользователя {user_id}")
+        if user_id in self.pending_saves:
+            del self.pending_saves[user_id]
+        if user_id in self.cached_users:
+            del self.cached_users[user_id]
+    
+    async def get_cached_user(self, user_id: int, username: str = None) -> "User":
+        """Получает пользователя из кэша или базы данных"""
+        if user_id in self.cached_users:
+            return self.cached_users[user_id]
+        
+        from src.database.operations import get_or_create_user
+        user = await get_or_create_user(user_id, username)
+        self.cached_users[user_id] = user
+        return user
+    
+    def mark_for_save(self, user_id: int):
+        """Отмечает пользователя как имеющего несохраненные изменения"""
+        self.pending_saves[user_id] = True
+    
+    async def save_pending_changes(self, user_id: int, force: bool = False):
+        """Сохраняет все несохраненные изменения пользователя в БД"""
+        if user_id not in self.pending_saves and not force:
+            return
+        
+        task_state = self.get_task_state(user_id)
+        if task_state:
+            await update_user(
+                user_id=user_id,
+                current_task_type=task_state["current_task_type"],
+                current_question=task_state["current_question"],
+                current_step=task_state["current_step"],
+                answers_json=task_state["answers"],
+            )
+            if user_id in self.pending_saves:
+                del self.pending_saves[user_id]
+            logger.info(f"Сохранены отложенные изменения для пользователя {user_id}")
 
     def get_current_task_type(self, user_id: int) -> int:
         state = self.get_task_state(user_id)
@@ -105,11 +142,8 @@ class TaskManager:
                 }
             )
 
-            await update_user(
-                user_id=user.user_id,
-                current_step=task_state["current_step"],
-                answers_json=task_state["answers"],
-            )
+            # Отмечаем для отложенного сохранения
+            self.mark_for_save(user.user_id)
 
             logger.info(
                 f"Ответ в тесте приоритетов: пользователь {user.user_id}, категория {category_id}, балл {score}"
@@ -168,11 +202,8 @@ class TaskManager:
 
             task_state["current_step"] = step + 1
 
-            await update_user(
-                user_id=user.user_id,
-                current_step=step + 1,
-                answers_json=task_state["answers"],
-            )
+            # Отмечаем для отложенного сохранения
+            self.mark_for_save(user.user_id)
 
             logger.info(
                 f"Ответ в тесте приоритетов (новая логика): пользователь {user.user_id}, категория {category_num}, балл {score}"
@@ -229,13 +260,13 @@ class TaskManager:
             )
 
             task_state["current_step"] = step + 1
-
-            await update_user(
-                user_id=user.user_id,
-                current_question=question_num,
-                current_step=step + 1,
-                answers_json=task_state["answers"],
-            )
+            
+            # Отмечаем для отложенного сохранения
+            self.mark_for_save(user.user_id)
+            
+            # Сохраняем только при завершении каждого INQ вопроса для надежности
+            if step == INQ_LENGTH_SCORES_PER_QUESTION - 1:
+                await self.save_pending_changes(user.user_id)
 
             logger.info(
                 f"Ответ в INQ тесте: пользователь {user.user_id}, вопрос {question_num}, вариант {option}, балл {score}"
@@ -268,11 +299,8 @@ class TaskManager:
             task_state["answers"][TaskSection.epi.value][question_key] = answer
             task_state["current_question"] += 1
 
-            await update_user(
-                user_id=user.user_id,
-                current_question=task_state["current_question"],
-                answers_json=task_state["answers"],
-            )
+            # Отмечаем для отложенного сохранения
+            self.mark_for_save(user.user_id)
 
             logger.info(
                 f"Ответ в EPI тесте: пользователь {user.user_id}, вопрос {question_num + 1}, ответ {answer}"
@@ -394,12 +422,18 @@ class TaskManager:
             state["current_question"] = 0
             state["current_step"] = 0
 
+            # Сохраняем все изменения одним запросом
             await update_user(
                 user_id=user_id,
                 current_task_type=state["current_task_type"],
                 current_question=0,
                 current_step=0,
+                answers_json=state["answers"],
             )
+            
+            # Очищаем pending saves так как уже сохранили
+            if user_id in self.pending_saves:
+                del self.pending_saves[user_id]
 
     async def move_to_next_question(self, user_id: int):
         state = self.get_task_state(user_id)
@@ -407,11 +441,17 @@ class TaskManager:
             state["current_question"] += 1
             state["current_step"] = 0
 
+            # Сохраняем все изменения одним запросом
             await update_user(
                 user_id=user_id,
                 current_question=state["current_question"],
                 current_step=0,
+                answers_json=state["answers"],
             )
+            
+            # Очищаем pending saves так как уже сохранили
+            if user_id in self.pending_saves:
+                del self.pending_saves[user_id]
 
     async def complete_all_tasks(self, user: "User") -> Dict[str, Any]:
         try:
@@ -439,9 +479,11 @@ class TaskManager:
                 else:
                     admin_link_send_time = datetime.now() + timedelta(hours=24)
 
+            # Сохраняем все финальные данные одним запросом
             await update_user(
                 user_id=user.user_id,
                 test_completed=True,
+                answers_json=task_state["answers"],
                 priorities_json=priorities_scores,
                 inq_scores_json=inq_scores,
                 epi_scores_json=epi_scores,
@@ -451,6 +493,10 @@ class TaskManager:
 
             if user.user_id in self.active_tasks:
                 del self.active_tasks[user.user_id]
+            if user.user_id in self.cached_users:
+                del self.cached_users[user.user_id]
+            if user.user_id in self.pending_saves:
+                del self.pending_saves[user.user_id]
 
             all_scores.update(inq_scores)
             all_scores.update(epi_scores)
@@ -525,11 +571,8 @@ class TaskManager:
                     )
                     task_state["current_step"] = len(current_answers)
 
-                await update_user(
-                    user_id=user.user_id,
-                    current_step=task_state["current_step"],
-                    answers_json=task_state["answers"],
-                )
+                # Отмечаем для отложенного сохранения
+                self.mark_for_save(user.user_id)
 
             elif last_action["task"] == TaskType.inq.value:
                 question_num = last_action["question"]
@@ -557,12 +600,8 @@ class TaskManager:
                 task_state["current_step"] = new_step
                 task_state["current_question"] = question_num
 
-                await update_user(
-                    user_id=user.user_id,
-                    current_question=question_num,
-                    current_step=new_step,
-                    answers_json=task_state["answers"],
-                )
+                # Отмечаем для отложенного сохранения
+                self.mark_for_save(user.user_id)
 
             logger.info(f"Откат выполнен для пользователя {user.user_id}")
             return True, MESSAGES["go_back_completed"], task_state

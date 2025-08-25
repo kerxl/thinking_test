@@ -17,11 +17,50 @@ from .sender import send_priorities_task, send_inq_question, send_epi_question
 from src.database.operations import get_or_create_user
 
 
+async def get_retry_callback_data(user_id: int) -> str:
+    """Определяет callback_data для кнопки 'Попробовать снова' на основе текущего состояния"""
+    task_state = task_manager.get_task_state(user_id)
+    if not task_state:
+        return "start_tasks"
+    
+    current_task = task_state["current_task_type"]
+    current_question = task_state["current_question"]
+    
+    if current_task == TaskType.priorities.value:
+        return "retry_priorities"
+    elif current_task == TaskType.inq.value:
+        return f"retry_inq_{current_question}"
+    elif current_task == TaskType.epi.value:
+        return f"retry_epi_{current_question}"
+    else:
+        return "start_tasks"
+
+
+async def send_error_with_retry(callback: CallbackQuery, error_text: str, user_id: int):
+    """Отправляет ошибку с кнопкой 'Попробовать снова'"""
+    retry_callback_data = await get_retry_callback_data(user_id)
+    
+    await callback.message.edit_text(
+        f"❌ <b>Ошибка:</b>\n{error_text}\n\nПопробуйте еще раз:",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="🔄 Попробовать снова", callback_data=retry_callback_data)]
+            ]
+        ),
+        parse_mode="HTML"
+    )
+
+
 @dp.callback_query(F.data == "start_personal_data")
 async def collect_personal_data(callback: CallbackQuery, state: FSMContext):
     """
     Установка фамилии имени пользователя
     """
+    # Предварительно кэшируем пользователя для будущих операций
+    await task_manager.get_cached_user(
+        user_id=callback.from_user.id, username=callback.from_user.username
+    )
+    
     await callback.message.edit_text(MESSAGES["callback_start_collect_personal_data"])
     await state.set_state(PersonalDataStates.waiting_for_name)
     await callback.answer()
@@ -29,7 +68,8 @@ async def collect_personal_data(callback: CallbackQuery, state: FSMContext):
 
 @dp.callback_query(F.data == "start_tasks")
 async def start_tasks(callback: CallbackQuery):
-    user = await get_or_create_user(
+    # Предварительно кэшируем пользователя
+    user = await task_manager.get_cached_user(
         user_id=callback.from_user.id, username=callback.from_user.username
     )
 
@@ -50,7 +90,7 @@ async def process_priorities_answer(callback: CallbackQuery):
     _, _, new_index_str = callback.data.split("_")
     new_index = int(new_index_str)
 
-    user = await get_or_create_user(
+    user = await task_manager.get_cached_user(
         user_id=callback.from_user.id, username=callback.from_user.username
     )
 
@@ -59,7 +99,7 @@ async def process_priorities_answer(callback: CallbackQuery):
     )
 
     if new_index >= len(remaining_categories):
-        await callback.answer("❌ Неверный выбор категории", show_alert=True)
+        await send_error_with_retry(callback, "Неверный выбор категории", user.user_id)
         return
 
     original_index = remaining_categories[new_index]["original_index"]
@@ -69,12 +109,12 @@ async def process_priorities_answer(callback: CallbackQuery):
         user, str(original_index)
     )
     if not success:
-        await callback.answer(f"❌ {message_text}", show_alert=True)
+        await send_error_with_retry(callback, message_text, user.user_id)
         return
 
     state = task_manager.get_task_state(user.user_id)
     if not state:
-        await callback.answer(MESSAGES["task_incorrect"], show_alert=True)
+        await send_error_with_retry(callback, "Состояние теста не найдено", user.user_id)
         return
 
     score = PRIORITIES_SCORES_PER_QUESTION[state["current_step"] - 1]
@@ -104,6 +144,10 @@ async def start_inq_task(callback: CallbackQuery):
     """
     Начало INQ теста
     """
+    # Предварительно кэшируем пользователя для ускорения последующих операций
+    await task_manager.get_cached_user(
+        user_id=callback.from_user.id, username=callback.from_user.username
+    )
     await send_inq_question(callback.message, callback.from_user.id, 0)
     await callback.answer()
 
@@ -117,7 +161,7 @@ async def process_inq_answer(callback: CallbackQuery):
     question_num = int(parts[2])
     new_index = int(parts[3])
 
-    user = await get_or_create_user(
+    user = await task_manager.get_cached_user(
         user_id=callback.from_user.id, username=callback.from_user.username
     )
 
@@ -126,19 +170,19 @@ async def process_inq_answer(callback: CallbackQuery):
     )
 
     if new_index >= len(remaining_data["options"]):
-        await callback.answer("❌ Неверный выбор варианта", show_alert=True)
+        await send_error_with_retry(callback, "Неверный выбор варианта", user.user_id)
         return
 
     original_option = remaining_data["options"][new_index]["original_option"]
 
     success, message_text = await task_manager.process_inq_answer(user, original_option)
     if not success:
-        await callback.answer(f"❌ {message_text}", show_alert=True)
+        await send_error_with_retry(callback, message_text, user.user_id)
         return
 
     state = task_manager.get_task_state(user.user_id)
     if not state:
-        await callback.answer(MESSAGES["task_incorrect"], show_alert=True)
+        await send_error_with_retry(callback, "Состояние теста не найдено", user.user_id)
         return
 
     score = INQ_SCORES_PER_QUESTION[state["current_step"] - 1]
@@ -172,13 +216,13 @@ async def go_back(callback: CallbackQuery):
     """
     Обработка кнопки "Назад"
     """
-    user = await get_or_create_user(
+    user = await task_manager.get_cached_user(
         user_id=callback.from_user.id, username=callback.from_user.username
     )
 
     success, message_text, new_state = await task_manager.go_back_question(user)
     if not success:
-        await callback.answer(f"❌ {message_text}", show_alert=True)
+        await send_error_with_retry(callback, message_text, user.user_id)
         return
 
     await callback.answer(MESSAGES["go_back_completed"])
@@ -191,11 +235,45 @@ async def go_back(callback: CallbackQuery):
         )
 
 
+# Обработчики для кнопки "Попробовать снова"
+@dp.callback_query(F.data == "retry_priorities")
+async def retry_priorities_task(callback: CallbackQuery):
+    """Повторная попытка теста приоритетов"""
+    user = await task_manager.get_cached_user(
+        user_id=callback.from_user.id, username=callback.from_user.username
+    )
+    await send_priorities_task(callback.message, user.user_id)
+
+
+@dp.callback_query(F.data.startswith("retry_inq_"))
+async def retry_inq_question(callback: CallbackQuery):
+    """Повторная попытка INQ вопроса"""
+    question_num = int(callback.data.split("_")[2])
+    user = await task_manager.get_cached_user(
+        user_id=callback.from_user.id, username=callback.from_user.username
+    )
+    await send_inq_question(callback.message, user.user_id, question_num)
+
+
+@dp.callback_query(F.data.startswith("retry_epi_"))
+async def retry_epi_question(callback: CallbackQuery):
+    """Повторная попытка EPI вопроса"""
+    question_num = int(callback.data.split("_")[2])
+    user = await task_manager.get_cached_user(
+        user_id=callback.from_user.id, username=callback.from_user.username
+    )
+    await send_epi_question(callback.message, user.user_id, question_num)
+
+
 @dp.callback_query(F.data == "start_epi_task")
 async def start_epi_task(callback: CallbackQuery):
     """
     Начало EPI теста
     """
+    # Предварительно кэшируем пользователя для ускорения последующих операций
+    await task_manager.get_cached_user(
+        user_id=callback.from_user.id, username=callback.from_user.username
+    )
     await send_epi_question(callback.message, callback.from_user.id, 0)
     await callback.answer()
 
@@ -208,13 +286,13 @@ async def process_epi_answer(callback: CallbackQuery):
     _, question_num_str, answer = callback.data.split("_")
     question_num = int(question_num_str)
 
-    user = await get_or_create_user(
+    user = await task_manager.get_cached_user(
         user_id=callback.from_user.id, username=callback.from_user.username
     )
 
     success, message_text = await task_manager.process_epi_answer(user, answer)
     if not success:
-        await callback.answer(f"❌ {message_text}", show_alert=True)
+        await send_error_with_retry(callback, message_text, user.user_id)
         return
 
     await callback.answer(f"✅ Ответ: {answer}")
