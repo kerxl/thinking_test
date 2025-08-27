@@ -467,17 +467,20 @@ class TaskManager:
             inq_scores = TaskEntity.inq.value.calculate_scores(task_state["answers"])
             epi_scores = TaskEntity.epi.value.calculate_scores(task_state["answers"])
 
-            # Устанавливаем время отправки персональной ссылки через 24 часа для пользователей не из Senler
+            # Устанавливаем время отправки персональной ссылки через случайное время для пользователей не из Senler
             admin_link_send_time = None
             if not user.from_senler:
                 from datetime import datetime, timedelta
                 from config.settings import DEBUG
+                import random
 
-                # В режиме отладки - отправка через 5 секунд, иначе через 24 часа
+                # В режиме отладки - отправка через 5 секунд, иначе через случайное время от 15 до 24 часов
                 if DEBUG:
                     admin_link_send_time = datetime.now() + timedelta(seconds=5)
                 else:
-                    admin_link_send_time = datetime.now() + timedelta(hours=24)
+                    # Случайное время от 15 до 24 часов
+                    random_hours = random.randint(15, 24)
+                    admin_link_send_time = datetime.now() + timedelta(hours=random_hours)
 
             # Сохраняем все финальные данные одним запросом
             await update_user(

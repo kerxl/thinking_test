@@ -46,20 +46,7 @@ async def complete_all_tasks(message: Message, user):
     result_text += f"<b>📊 N (нейротизм):</b> {all_scores.get('N', 0)}\n"
     result_text += f"<b>📊 L (шкала лжи):</b> {all_scores.get('L', 0)}\n"
 
-    # Устанавливаем время отправки персональной ссылки через 24 часа для пользователей не из Senler
-    if not user.from_senler:
-        from datetime import datetime, timedelta
-        from config.settings import DEBUG
-        from src.database.operations import update_user as update_user_db
-
-        # В режиме отладки - отправка через 5 секунд, иначе через 24 часа
-        if DEBUG:
-            send_time = datetime.now() + timedelta(seconds=5)
-        else:
-            send_time = datetime.now() + timedelta(hours=24)
-
-        # Устанавливаем время отправки ссылки
-        await update_user_db(user_id=user.user_id, admin_link_send_time=send_time)
+    # Время отправки персональной ссылки устанавливается автоматически в TaskManager при завершении всех тестов
 
     # Проверяем, пришел ли пользователь из Senler
     if user.from_senler:
