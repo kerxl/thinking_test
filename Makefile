@@ -165,11 +165,11 @@ db-connect: ## Подключиться к базе данных интерак�
 
 db-senler: ## Применить миграцию для Senler интеграции
 	@echo "$(GREEN)Применение миграции Senler...$(NC)"
-	psql "postgresql://postgres:postgres@localhost/mind_style" -f database/add_senler_fields.sql
+	mysql -u mind_style_user -p mind_style_bot < database/add_senler_fields.sql
 
 db-admin-links: ## Применить миграцию для админских ссылок Senler
 	@echo "$(GREEN)Применение миграции админских ссылок...$(NC)"
-	psql "postgresql://postgres:postgres@localhost/mind_style" -f database/add_admin_senler_link_fields.sql
+	mysql -u mind_style_user -p mind_style_bot < database/add_admin_senler_link_fields.sql
 
 test-admin-links: ## Тестировать функциональность админских ссылок
 	@echo "$(GREEN)Тестирование админских ссылок...$(NC)"

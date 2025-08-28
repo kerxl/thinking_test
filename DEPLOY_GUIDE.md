@@ -6,12 +6,12 @@
 - SSH-доступ к вашему серверу (логин и пароль)
 - Права администратора (sudo доступ)
 
-### 2. База данных PostgreSQL
+### 2. База данных MySQL
 - Имя базы данных (например: `mind_style_bot`)
 - Логин пользователя базы данных
 - Пароль пользователя базы данных
 - Хост базы данных (обычно `localhost`)
-- Порт базы данных (обычно `5432`)
+- Порт базы данных (обычно `3306`)
 
 ### 3. Telegram Bot Token
 - Токен бота, который вы получили от @BotFather в Telegram
@@ -44,8 +44,8 @@ cd /путь/к/папке/с/ботом/06.08
    # Токен вашего Telegram бота
    BOT_TOKEN=ваш_токен_бота_от_BotFather
    
-   # Настройки базы данных PostgreSQL
-   DATABASE_URL=postgresql://пользователь:пароль@localhost:5432/название_базы
+   # Настройки базы данных MySQL
+   DATABASE_URL=mysql://пользователь:пароль@localhost:3306/название_базы
    
    # ID администратора бота (ваш Telegram ID)
    ADMIN_USER_ID=ваш_telegram_id
@@ -83,12 +83,19 @@ pip install -r requirements.txt
 
 ### Шаг 6: Настройка базы данных
 ```bash
-# Применение миграций для создания таблиц
-alembic upgrade head
+# Создание таблиц в MySQL
+mysql -u ваш_пользователь -p ваша_база_данных < database/create_tables.sql
 
-# Применение миграций для Senler интеграции
-make db-senler
+# Добавление полей для Senler интеграции
+mysql -u ваш_пользователь -p ваша_база_данных < database/add_admin_senler_link_fields.sql
 ```
+
+**Альтернативный способ через phpMyAdmin:**
+1. Войдите в phpMyAdmin
+2. Выберите вашу базу данных
+3. Перейдите во вкладку "SQL"
+4. Скопируйте и выполните содержимое файла `database/create_tables.sql`
+5. Затем скопируйте и выполните содержимое файла `database/add_admin_senler_link_fields.sql`
 
 ### Шаг 7: Тестовый запуск
 ```bash
@@ -140,7 +147,7 @@ make run-with-api
    ```ini
    [Unit]
    Description=Mind Style Telegram Bot
-   After=network.target postgresql.service
+   After=network.target mysql.service
    
    [Service]
    Type=simple
@@ -223,9 +230,10 @@ pip install -r requirements.txt
 
 ### Проблема: "Connection refused" к базе данных
 **Решение:**
-1. Проверьте что PostgreSQL запущен: `sudo systemctl status postgresql`
+1. Проверьте что MySQL запущен: `sudo systemctl status mysql`
 2. Проверьте правильность данных в `.env` файле
 3. Убедитесь что база данных создана и пользователь имеет права доступа
+4. Попробуйте подключиться к MySQL вручную: `mysql -u пользователь -p база_данных`
 
 ### Проблема: Бот не отвечает на сообщения
 **Решение:**
@@ -248,7 +256,7 @@ pip install -r requirements.txt
 
 - [ ] ✅ Проект загружен на сервер
 - [ ] ✅ Настроен файл `.env` с правильными данными
-- [ ] ✅ База данных PostgreSQL настроена
+- [ ] ✅ База данных MySQL настроена
 - [ ] ✅ Установлены зависимости Python
 - [ ] ✅ Применены миграции базы данных
 - [ ] ✅ Бот успешно запускается
