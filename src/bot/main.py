@@ -2,16 +2,16 @@ import asyncio
 import json
 import logging
 
-# ignore
-from . import handler
-from . import callback
-from . import proccesser
-
 from config.const import TaskEntity, MESSAGES
 from config.settings import DEBUG
 from src.database.operations import init_db
-from .globals import bot, dp, task_manager
+from .globals import bot, dp
 from src.core.scheduler import link_scheduler
+
+# Импорт обработчиков для регистрации роутеров
+from . import handler
+from . import callback
+from . import proccesser
 
 logging.basicConfig(
     level=logging.INFO if DEBUG else logging.WARNING,

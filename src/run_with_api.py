@@ -20,6 +20,11 @@ from src.bot.globals import bot, dp, task_manager
 from src.api.server import app
 from src.core.scheduler import link_scheduler
 
+# Импорт обработчиков для регистрации роутеров
+from src.bot import handler
+from src.bot import callback
+from src.bot import proccesser
+
 logging.basicConfig(
     level=logging.INFO if DEBUG else logging.WARNING,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
