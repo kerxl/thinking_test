@@ -1,38 +1,49 @@
 -- ============================================
--- Скрипт для создания базы данных и пользователя
+-- Скрипт для создания базы данных MySQL
 -- ============================================
 
--- Подключение к PostgreSQL под суперпользователем postgres
--- psql -U postgres
+-- Подключение к MySQL под суперпользователем root
+-- mysql -u root -p
 
--- Создание базы данных
-CREATE DATABASE mind_style
-    WITH 
-    OWNER = postgres
-    ENCODING = 'UTF8'
-    TABLESPACE = pg_default;
+-- Создание базы данных с правильной кодировкой
+CREATE DATABASE IF NOT EXISTS mind_style
+    CHARACTER SET utf8mb4
+    COLLATE utf8mb4_unicode_ci;
 
--- Предоставление всех прав на базу данных пользователю
-GRANT ALL PRIVILEGES ON DATABASE mind_style TO postgres;
+-- Создание пользователя для работы с базой (опционально)
+-- CREATE USER IF NOT EXISTS 'mind_style_user'@'localhost' IDENTIFIED BY 'secure_password';
+-- GRANT ALL PRIVILEGES ON mind_style.* TO 'mind_style_user'@'localhost';
+-- FLUSH PRIVILEGES;
 
--- Подключение к созданной базе данных
-\c mind_style
+-- Переключение на созданную базу данных
+USE mind_style;
 
--- Предоставление прав на схему public
-GRANT ALL ON SCHEMA public TO postgres;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO postgres;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO postgres;
+-- Установка кодировки для текущей сессии
+SET NAMES utf8mb4;
+SET CHARACTER SET utf8mb4;
+SET collation_connection = utf8mb4_unicode_ci;
 
--- Установка прав по умолчанию для будущих объектов
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO postgres;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO postgres;
-
--- Создание расширения для генерации UUID (если понадобится)
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- Настройка SQL режимов для совместимости
+SET sql_mode = 'STRICT_TRANS_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO';
 
 -- Информация об успешном создании
 SELECT 
     'База данных mind_style успешно создана!' as message,
-    current_database() as database_name,
-    current_user as current_user,
-    version() as postgresql_version;
+    DATABASE() as database_name,
+    USER() as current_user,
+    VERSION() as mysql_version,
+    @@character_set_database as charset,
+    @@collation_database as collation;
+
+-- Проверка настроек базы данных
+SHOW VARIABLES LIKE 'character_set%';
+SHOW VARIABLES LIKE 'collation%';
+
+-- Показать размер базы данных
+SELECT 
+    SCHEMA_NAME as 'Database',
+    ROUND(SUM(DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024, 2) as 'Size (MB)'
+FROM information_schema.SCHEMATA s
+LEFT JOIN information_schema.TABLES t ON s.SCHEMA_NAME = t.TABLE_SCHEMA
+WHERE s.SCHEMA_NAME = 'mind_style'
+GROUP BY s.SCHEMA_NAME;

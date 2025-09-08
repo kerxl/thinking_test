@@ -1,22 +1,36 @@
 -- ============================================
--- Скрипт для очистки базы данных
+-- Скрипт для очистки базы данных MySQL
 -- ВНИМАНИЕ: Этот скрипт удаляет ВСЕ данные!
 -- ============================================
 
 -- Подключение к базе данных
--- psql -U postgres -d mind_style
+-- mysql -u root -p mind_style
+
+-- Установка кодировки для сессии
+SET NAMES utf8mb4;
+SET CHARACTER SET utf8mb4;
+
+-- Переключение на базу данных
+USE mind_style;
 
 -- ============================================
 -- ВАРИАНТ 1: Очистка данных с сохранением структуры
 -- ============================================
 
--- Очистка таблицы users (удаление всех записей)
-TRUNCATE TABLE users RESTART IDENTITY CASCADE;
+-- Отключаем проверки внешних ключей для ускорения операций
+SET FOREIGN_KEY_CHECKS = 0;
+
+-- Очистка таблицы users (удаление всех записей и сброс AUTO_INCREMENT)
+TRUNCATE TABLE users;
+
+-- Включаем обратно проверки внешних ключей
+SET FOREIGN_KEY_CHECKS = 1;
 
 -- Проверка что таблица пуста
 SELECT 
     'Таблица users очищена!' as message,
-    COUNT(*) as remaining_records
+    COUNT(*) as remaining_records,
+    'AUTO_INCREMENT сброшен до 1' as auto_increment_status
 FROM users;
 
 -- ============================================
@@ -26,23 +40,26 @@ FROM users;
 -- Удаление только завершенных тестов (раскомментировать если нужно)
 -- DELETE FROM users WHERE test_completed = TRUE;
 
--- Удаление тестовых пользователей (раскомментировать если нужно)
+-- Удаление тестовых пользователей (раскомментировать если нужно)  
 -- DELETE FROM users WHERE username LIKE 'test_%' OR first_name LIKE 'Тест%';
 
 -- Удаление пользователей старше определенной даты (раскомментировать если нужно)
--- DELETE FROM users WHERE created_at < CURRENT_DATE - INTERVAL '30 days';
+-- DELETE FROM users WHERE created_at < DATE_SUB(CURDATE(), INTERVAL 30 DAY);
 
 -- Удаление незавершенных тестов старше 24 часов (раскомментировать если нужно)
 -- DELETE FROM users 
 -- WHERE test_completed = FALSE 
---   AND created_at < CURRENT_TIMESTAMP - INTERVAL '24 hours';
+--   AND created_at < DATE_SUB(NOW(), INTERVAL 24 HOUR);
+
+-- Удаление пользователей из Senler (для тестирования, раскомментировать если нужно)
+-- DELETE FROM users WHERE from_senler = TRUE;
 
 -- ============================================
--- ВАРИАНТ 3: Сброс счетчиков
+-- ВАРИАНТ 3: Сброс счетчиков AUTO_INCREMENT
 -- ============================================
 
--- Сброс автоинкремента ID (если использовался TRUNCATE, то автоматически)
--- ALTER SEQUENCE users_id_seq RESTART WITH 1;
+-- Сброс автоинкремента ID (если не использовался TRUNCATE)
+-- ALTER TABLE users AUTO_INCREMENT = 1;
 
 -- ============================================
 -- ВАРИАНТ 4: Удаление и пересоздание таблиц
@@ -51,8 +68,9 @@ FROM users;
 -- ВНИМАНИЕ: Полностью удаляет структуру таблиц!
 -- Раскомментировать только если нужно полностью пересоздать структуру
 
--- DROP TABLE IF EXISTS users CASCADE;
--- DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE;
+-- SET FOREIGN_KEY_CHECKS = 0;
+-- DROP TABLE IF EXISTS users;
+-- SET FOREIGN_KEY_CHECKS = 1;
 
 -- После этого нужно будет выполнить create_tables.sql заново
 
@@ -62,25 +80,49 @@ FROM users;
 
 -- Показать размер таблицы после очистки
 SELECT 
-    schemaname,
-    tablename,
-    attname,
-    n_distinct,
-    correlation
-FROM pg_stats 
-WHERE tablename = 'users';
+    TABLE_SCHEMA as database_name,
+    TABLE_NAME as table_name,
+    ROUND(((DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024), 2) as size_mb,
+    TABLE_ROWS as row_count,
+    AUTO_INCREMENT as next_auto_increment
+FROM information_schema.TABLES 
+WHERE TABLE_SCHEMA = DATABASE() 
+    AND TABLE_NAME = 'users';
 
--- Показать информацию о таблице
+-- Показать информацию о структуре таблицы
 SELECT 
-    table_name,
-    column_name,
-    data_type,
-    is_nullable
-FROM information_schema.columns 
-WHERE table_name = 'users' 
-ORDER BY ordinal_position;
+    COLUMN_NAME as column_name,
+    DATA_TYPE as data_type,
+    IS_NULLABLE as is_nullable,
+    COLUMN_DEFAULT as default_value,
+    COLUMN_COMMENT as comment
+FROM information_schema.COLUMNS 
+WHERE TABLE_SCHEMA = DATABASE() 
+    AND TABLE_NAME = 'users' 
+ORDER BY ORDINAL_POSITION;
+
+-- Показать индексы таблицы
+SELECT 
+    INDEX_NAME as index_name,
+    COLUMN_NAME as column_name,
+    NON_UNIQUE as non_unique,
+    INDEX_TYPE as index_type
+FROM information_schema.STATISTICS 
+WHERE TABLE_SCHEMA = DATABASE() 
+    AND TABLE_NAME = 'users'
+ORDER BY INDEX_NAME, SEQ_IN_INDEX;
 
 -- Проверить что данные действительно удалены
 SELECT 
     'База данных очищена успешно!' as message,
-    (SELECT COUNT(*) FROM users) as total_users;
+    (SELECT COUNT(*) FROM users) as total_users,
+    NOW() as cleanup_time;
+
+-- Показать общую статистику базы данных
+SELECT 
+    SCHEMA_NAME as 'Database',
+    ROUND(SUM(DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024, 2) as 'Size (MB)',
+    COUNT(TABLE_NAME) as 'Tables Count'
+FROM information_schema.TABLES 
+WHERE TABLE_SCHEMA = DATABASE()
+GROUP BY SCHEMA_NAME;

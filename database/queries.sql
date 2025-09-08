@@ -1,9 +1,14 @@
 -- ============================================
--- Полезные SQL запросы для анализа данных
+-- Полезные SQL запросы для анализа данных (MySQL)
 -- ============================================
 
 -- Подключение к базе данных
--- psql -U postgres -d mind_style
+-- mysql -u root -p mind_style
+
+-- Установка кодировки
+SET NAMES utf8mb4;
+SET CHARACTER SET utf8mb4;
+USE mind_style;
 
 -- ============================================
 -- ОСНОВНАЯ СТАТИСТИКА
@@ -12,11 +17,11 @@
 -- Общая статистика пользователей
 SELECT 
     COUNT(*) as total_users,
-    COUNT(*) FILTER (WHERE test_completed = TRUE) as completed_tests,
-    COUNT(*) FILTER (WHERE test_completed = FALSE) as in_progress_tests,
-    COUNT(*) FILTER (WHERE current_task_type = 1) as on_priorities_test,
-    COUNT(*) FILTER (WHERE current_task_type = 2) as on_inq_test,
-    COUNT(*) FILTER (WHERE current_task_type = 3) as on_epi_test,
+    SUM(CASE WHEN test_completed = TRUE THEN 1 ELSE 0 END) as completed_tests,
+    SUM(CASE WHEN test_completed = FALSE THEN 1 ELSE 0 END) as in_progress_tests,
+    SUM(CASE WHEN current_task_type = 1 THEN 1 ELSE 0 END) as on_priorities_test,
+    SUM(CASE WHEN current_task_type = 2 THEN 1 ELSE 0 END) as on_inq_test,
+    SUM(CASE WHEN current_task_type = 3 THEN 1 ELSE 0 END) as on_epi_test,
     ROUND(AVG(age), 2) as average_age,
     MIN(age) as min_age,
     MAX(age) as max_age
@@ -60,7 +65,7 @@ SELECT
     test_end,
     CASE 
         WHEN test_end IS NOT NULL AND test_start IS NOT NULL 
-        THEN EXTRACT(EPOCH FROM (test_end - test_start)) / 60.0
+        THEN TIMESTAMPDIFF(MINUTE, test_start, test_end)
         ELSE NULL 
     END as duration_minutes
 FROM users 
@@ -69,9 +74,9 @@ ORDER BY duration_minutes;
 
 -- Средняя продолжительность тестирования
 SELECT 
-    ROUND(AVG(EXTRACT(EPOCH FROM (test_end - test_start)) / 60.0), 2) as avg_duration_minutes,
-    ROUND(MIN(EXTRACT(EPOCH FROM (test_end - test_start)) / 60.0), 2) as min_duration_minutes,
-    ROUND(MAX(EXTRACT(EPOCH FROM (test_end - test_start)) / 60.0), 2) as max_duration_minutes
+    ROUND(AVG(TIMESTAMPDIFF(MINUTE, test_start, test_end)), 2) as avg_duration_minutes,
+    ROUND(MIN(TIMESTAMPDIFF(MINUTE, test_start, test_end)), 2) as min_duration_minutes,
+    ROUND(MAX(TIMESTAMPDIFF(MINUTE, test_start, test_end)), 2) as max_duration_minutes
 FROM users 
 WHERE test_completed = TRUE 
   AND test_end IS NOT NULL 
@@ -86,10 +91,10 @@ SELECT
     current_question,
     current_step,
     created_at,
-    ROUND(EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - created_at)) / 3600.0, 2) as hours_stuck
+    ROUND(TIMESTAMPDIFF(HOUR, created_at, NOW()), 2) as hours_stuck
 FROM users 
 WHERE test_completed = FALSE 
-  AND created_at < CURRENT_TIMESTAMP - INTERVAL '24 hours'
+  AND created_at < DATE_SUB(NOW(), INTERVAL 24 HOUR)
 ORDER BY hours_stuck DESC;
 
 -- ============================================
