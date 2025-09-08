@@ -79,6 +79,23 @@ run-with-api: ## Запустить бота вместе с API серверо�
 	@echo "$(GREEN)Запуск бота + API сервера...$(NC)"
 	$(PYTHON) src/run_with_api.py
 
+run-webhook: ## Запустить бота в webhook режиме для production
+	@echo "$(GREEN)Запуск бота в webhook режиме...$(NC)"
+	$(PYTHON) src/run_webhook_mode.py
+
+run-local-ngrok: ## Запустить бота для локального тестирования с ngrok
+	@echo "$(GREEN)Запуск бота для локального тестирования (требует ngrok)...$(NC)"
+	@echo "$(YELLOW)Убедитесь что запущен: ngrok http 8000$(NC)"
+	$(PYTHON) src/run_local_ngrok.py
+
+test-telegram-api: ## Протестировать подключение к Telegram API
+	@echo "$(GREEN)Тестирование подключения к Telegram API...$(NC)"
+	$(PYTHON) test_telegram_api.py
+
+test-start-button: ## Тестировать кнопку "Начать тест"
+	@echo "$(GREEN)Тестирование кнопки 'Начать тест'...$(NC)"
+	$(PYTHON) test_start_button.py
+
 clean: ## Очистить временные файлы
 	@echo "$(GREEN)Очистка временных файлов...$(NC)"
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true

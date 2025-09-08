@@ -56,14 +56,52 @@ async def collect_personal_data(callback: CallbackQuery, state: FSMContext):
     """
     Установка фамилии имени пользователя
     """
-    # Предварительно кэшируем пользователя для будущих операций
-    await task_manager.get_cached_user(
-        user_id=callback.from_user.id, username=callback.from_user.username
-    )
+    import logging
+    logger = logging.getLogger(__name__)
     
-    await callback.message.edit_text(MESSAGES["callback_start_collect_personal_data"])
-    await state.set_state(PersonalDataStates.waiting_for_name)
-    await callback.answer()
+    logger.info(f"🎯 СРАБАТЫВАЕТ callback start_personal_data от пользователя {callback.from_user.id}")
+    logger.info(f"   Callback ID: {callback.id}")
+    logger.info(f"   Message ID: {callback.message.message_id}")
+    
+    try:
+        # Сначала отвечаем на callback чтобы убрать "загрузку"
+        await callback.answer("Начинаем тестирование...")
+        
+        # Предварительно кэшируем пользователя для будущих операций
+        user = await task_manager.get_cached_user(
+            user_id=callback.from_user.id, username=callback.from_user.username
+        )
+        logger.info(f"👤 Пользователь кэширован: {user.user_id if user else 'None'}")
+        
+        # Сбрасываем предыдущие состояния
+        await state.clear()
+        
+        message_text = MESSAGES.get("callback_start_collect_personal_data", "Введите ваше имя:")
+        logger.info(f"📝 Отправляем сообщение: {message_text}")
+        
+        try:
+            await callback.message.edit_text(
+                message_text,
+                reply_markup=None  # Убираем старые кнопки
+            )
+        except Exception as edit_error:
+            logger.warning(f"⚠️ Не удалось отредактировать сообщение: {edit_error}")
+            # Fallback - отправляем новое сообщение
+            await callback.message.answer(message_text)
+        
+        await state.set_state(PersonalDataStates.waiting_for_name)
+        
+        logger.info(f"✅ Callback start_personal_data успешно обработан для пользователя {callback.from_user.id}")
+        logger.info(f"   Установлено состояние: PersonalDataStates.waiting_for_name")
+        
+    except Exception as e:
+        logger.error(f"❌ Ошибка в callback start_personal_data: {e}")
+        import traceback
+        logger.error(f"🐛 Traceback: {traceback.format_exc()}")
+        try:
+            await callback.answer("Произошла ошибка. Попробуйте еще раз.")
+        except:
+            pass  # Игнорируем ошибки при попытке ответить на callback
 
 
 @dp.callback_query(F.data == "start_tasks")

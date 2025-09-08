@@ -12,6 +12,7 @@ from src.core.scheduler import link_scheduler
 from . import handler
 from . import callback
 from . import proccesser
+from . import fallback  # Fallback обработчики (должны быть последними)
 
 logging.basicConfig(
     level=logging.INFO if DEBUG else logging.WARNING,
