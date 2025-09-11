@@ -2,7 +2,7 @@
 
 # Скрипт для тестирования Senler webhook endpoint
 
-NGROK_URL="https://8224dace9452.ngrok-free.app"  # Замените на ваш ngrok URL
+NGROK_URL="https://3095393d4deb.ngrok-free.app"  # Замените на ваш ngrok URL
 # Или для локального тестирования:
 # LOCAL_URL="http://localhost:8000"
 
@@ -74,6 +74,31 @@ curl -X POST "$NGROK_URL/senler/webhook" \
     "contact_id": '$YOUR_USER_ID',
     "some_field": "test",
     "another_id": 123
+  }' | jq .
+
+echo
+echo "📋 Тест 8: Webhook с получением user_id по username"
+curl -X POST "$NGROK_URL/senler/webhook" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "kerxl",
+    "token": "test_token_username_lookup"
+  }' | jq .
+
+echo
+echo "📋 Тест 9: Webhook только с username (тестируем полную цепочку)"
+curl -X POST "$NGROK_URL/senler/webhook" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "telegram_username": "kerxl"
+  }' | jq .
+
+echo
+echo "📋 Тест 10: Установка контакта с пользователем"
+curl -X POST "$NGROK_URL/senler/establish-contact" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "kerxl"
   }' | jq .
 
 echo

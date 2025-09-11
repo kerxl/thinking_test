@@ -192,13 +192,36 @@ async def senler_webhook(request: Request):
                         logger.info(f"✅ Автоматически определен user_id: {user_id} из поля '{key}'")
                         break
             
-            # Если все еще не найден - используем фиксированный для тестирования
+            # Если все еще не найден и есть username - пытаемся найти в БД или получить через Telegram API
+            if not user_id and username:
+                # Сначала проверяем базу данных
+                from src.database.operations import get_user_by_username
+                logger.info(f"🔍 Поиск пользователя @{username} в базе данных...")
+                existing_user = await get_user_by_username(username)
+                
+                if existing_user and existing_user.user_id:
+                    user_id = existing_user.user_id
+                    logger.info(f"✅ Найден пользователь в БД: user_id = {user_id} для @{username}")
+                else:
+                    logger.info(f"🔍 Пользователь не найден в БД, попытка получить user_id через Telegram API для username: @{username}")
+                    telegram_user_id = await senler_integration.get_user_id_by_username(username)
+                    if telegram_user_id:
+                        user_id = telegram_user_id
+                        logger.info(f"✅ Получен user_id через Telegram API: {user_id} для @{username}")
+                    else:
+                        logger.warning(f"❌ Не удалось получить user_id через Telegram API для @{username}")
+            
+            # Если все еще не найден - генерируем виртуальный user_id
             if not user_id:
-                # ВАЖНО: Замените на ID администратора из .env
-                from config.settings import ADMIN_USER_ID
-                user_id = ADMIN_USER_ID
-                logger.warning(f"⚠️  Используем fallback user_id администратора: {user_id}")
-                logger.warning("💡 В Senler настройте передачу Telegram User ID пользователя")
+                # Генерируем виртуальный user_id на основе senler_user_id или токена
+                import hashlib
+                base_string = senler_user_id or token or username or f"senler_unknown_{json_data.get('timestamp', 'default')}"
+                hash_object = hashlib.md5(base_string.encode())
+                # Генерируем user_id в диапазоне виртуальных ID (начинаем с 99000000)
+                user_id = 99000000 + int(hash_object.hexdigest()[:8], 16) % 999999
+                logger.warning(f"⚠️  Сгенерирован виртуальный user_id: {user_id} для Senler пользователя")
+                logger.warning(f"💡 Основа для генерации: '{base_string}'")
+                logger.warning("🔧 В Senler настройте передачу Telegram User ID для корректной работы")
 
         # 2. Если username отсутствует - генерируем
         if not username or username in ['null', 'None']:
@@ -359,6 +382,41 @@ async def _handle_unhandled_update(update: "Update"):
             
     except Exception as e:
         logger.error(f"❌ Ошибка в универсальном обработчике: {e}")
+
+
+@app.post("/senler/establish-contact")
+async def establish_contact_with_user(request: Request):
+    """
+    Endpoint для установки контакта с пользователем через username
+    """
+    try:
+        json_data = await request.json()
+        username = json_data.get("username")
+        
+        if not username:
+            raise HTTPException(status_code=400, detail="Username обязателен")
+            
+        logger.info(f"🤝 Запрос на установку контакта с @{username}")
+        
+        # Пытаемся установить контакт
+        user_id = await senler_integration.try_establish_contact_and_get_user_id(username, establish_contact=True)
+        
+        if user_id:
+            return {
+                "success": True,
+                "message": f"Контакт установлен с пользователем @{username}",
+                "user_id": user_id
+            }
+        else:
+            return {
+                "success": False,
+                "message": f"Не удалось установить контакт с пользователем @{username}",
+                "user_id": None
+            }
+            
+    except Exception as e:
+        logger.error(f"❌ Ошибка установки контакта: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/senler/complete/{user_id}")

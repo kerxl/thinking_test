@@ -22,6 +22,18 @@ async def get_user_by_id(user_id: int) -> User:
         return result.scalar_one_or_none()
 
 
+async def get_user_by_username(username: str) -> User:
+    """Получить пользователя по username"""
+    async with AsyncSessionLocal() as session:
+        # Убираем @ если он есть
+        clean_username = username.lstrip('@') if username else ""
+        if not clean_username:
+            return None
+            
+        result = await session.execute(select(User).where(User.username == clean_username))
+        return result.scalar_one_or_none()
+
+
 async def get_or_create_user(
     user_id: int, username: str = None, first_name: str = None, last_name: str = None
 ) -> User:

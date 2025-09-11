@@ -33,7 +33,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ЗАМЕНИТЕ НА ВАШ NGROK URL!
-NGROK_URL = "https://8224dace9452.ngrok-free.app"
+NGROK_URL = "https://3095393d4deb.ngrok-free.app"
 
 
 async def setup_local_webhook_bot():
